@@ -1,0 +1,26 @@
+
+```{r}
+set.seed(0)
+```
+
+```{r}
+# GENERATE IVs
+one = rep(1, 10) # For propensity score calculations, below
+z1 <- rnorm(10, mean = 0, sd = 1)
+z2 <- rnorm(10, mean = 0, sd = 1)
+z3 <- replicate(10, ifelse(rnorm(1, mean = 0, sd = 1) <= 0.3, 1, 0))
+
+# GENERATE EXPOSURE AS A FUNCTION OF IVs
+
+# Set betas
+b0 = 1.5
+b1 = 1
+b2 = -2
+b3 = 1
+
+# Calculate propensity scores
+ps <- (1 + exp(b0*one + b1*z1 + b2*z2 + b3*z3))^(-1)
+```
+
+
+
