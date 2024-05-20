@@ -14,23 +14,23 @@ z3 <- replicate(n, ifelse(rnorm(1, mean = 0, sd = 1) <= 0.3, 1, 0))
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
 
-# Set betas
-b0 = 1.5
-b1 = 1
-b2 = -2
-b3 = 1
+# Set betas for "true" data
+b0_0 = 1.5
+b1_0 = 1
+b2_0 = -2
+b3_0 = 1
 
 # Calculate true propensity scores (logit)
 # TODO: Confirm R broadcasts b0 to correct length
-ps <- (1 + exp(b0 + b1*z1 + b2*z2 + b3*z3))^(-1)
+ps <- (1 + exp(b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3))^(-1)
 
 # Calculate exposure
 x <- ifelse(ps + runif(n, min = 0, max = 1) < 0.91, 1, 0)
 
 # GENERATE TRUE OUTCOMES
-b4 <- 2
+b4_0 <- 2
 z4 <- rnorm(n, mean = 0, sd = 1)
-y <- b1*z1 + b3*z3 + b4*z4
+y <- b1_0*z1 + b3_0*z3 + b4_0*z4
 
 # TRUE DATA
 data <- tibble(z1, z2, z3, x, ps, y)
@@ -40,13 +40,35 @@ control <- data %>% filter(x == 0)
 
 ```{r}
 # GENERATE ESTIMATED OUTCOMES
-t = nrow(treat)
-c = nrow(control)
 
 # Scenario 1
-ps1_t <- (1 + exp(b0 + b1*treat$z1 + b3*treat$z3))^(-1)
-yhat1 <- b0 + b1*treat$z1 + b3*treat$z3
-yhat0 <- 99 # ???
+
+# Estimate betas
+mod1_1 <- lm(y ~ x + z1 + z3, data = treat)
+mod0_1 <- lm(y ~ x + z1 + z3, data = control)
+
+b0_1_1 <- mod1_1$coefficients[1]
+b1_1_1 <- mod1_1$coefficients[3]
+b3_1_1 <- mod1_1$coefficients[4]
+
+b0_1_0 <- mod0_1$coefficients[1]
+b1_1_0 <- mod0_1$coefficients[3]
+b3_1_0 <- mod0_1$coefficients[4]
+
+# Estimate propensity scores and conditional means using betas
+ps1_t <- (1 + exp(b0_1_1 + b1_1_1*treat$z1 + b3_1_1*treat$z3))^(-1) # Betas estimated on X=1
+yhat1_t <- b0_1_1 + b1_1_1*treat$z1 + b3_1_1*treat$z3 # Betas estimated on X=1
+yhat0_t <- b0_1_0 + b1_1_0*treat$z1 + b3_1_0*treat$z3 # Betas estimated on X=0
+
+treat <- treat %>% mutate(ps1 = ps1_t,
+                          yhat1 = yhat1_t,
+                          yhat0 = yhat0_t)
+
+treat <- treat %>% mutate(
+  dr1_1 = ((y / ps1) - ((yhat1 * (1 - ps1)) / ps1))
+)
+
+head(treat)
 ```
 
 
