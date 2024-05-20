@@ -5,10 +5,9 @@ set.seed(0)
 ```
 
 ```{r}
-n = 1000
+n = 100
 
 # GENERATE IVs
-one = rep(1, n) # For propensity score calculations, below
 z1 <- rnorm(n, mean = 0, sd = 1)
 z2 <- rnorm(n, mean = 0, sd = 1)
 z3 <- replicate(n, ifelse(rnorm(1, mean = 0, sd = 1) <= 0.3, 1, 0))
@@ -22,7 +21,8 @@ b2 = -2
 b3 = 1
 
 # Calculate true propensity scores (logit)
-ps <- (1 + exp(b0*one + b1*z1 + b2*z2 + b3*z3))^(-1)
+# TODO: Confirm R broadcasts b0 to correct length
+ps <- (1 + exp(b0 + b1*z1 + b2*z2 + b3*z3))^(-1)
 
 # Calculate exposure
 x <- ifelse(ps + runif(n, min = 0, max = 1) < 0.91, 1, 0)
@@ -34,55 +34,20 @@ y <- b1*z1 + b3*z3 + b4*z4
 
 # TRUE DATA
 data <- tibble(z1, z2, z3, x, ps, y)
-
 treat <- data %>% filter(x == 1)
-mod1 <- lm(y ~ x + z1 + z2 + z3, data = treat)
-
 control <- data %>% filter(x == 0)
-mod0 <- lm(y ~ x + z1 + z2 + z3, data = control)
 ```
 
 ```{r}
 # GENERATE ESTIMATED OUTCOMES
+t = nrow(treat)
+c = nrow(control)
 
-# Conditional means
-# yhat0 <-  predict(mod0, newata = treat) THIS DOESN'T DO WHAT I EXPECT
-
-b0_0 <- mod0$coefficients[1]
-b1_0 <- mod0$coefficients[3]
-b2_0 <- mod0$coefficients[4]
-b3_0 <- mod0$coefficients[5]
-
-treat <- treat %>% mutate(yhat0 = b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)
-
-b0_1 <- mod1$coefficients[1]
-b1_1 <- mod1$coefficients[3]
-b2_1 <- mod1$coefficients[4]
-b3_1 <- mod1$coefficients[5]
-
-control <- control %>% mutate(yhat0 = b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)
-```
-
-```{r}
 # Scenario 1
-ps1 <- (1 + exp(b0*one + b1*z1 + b3*z3))^(-1)
-y1 <- b0*one + b1*z1 + b3*z3
-
-dr1_1 <-  99 # FILL IN
-dr0_1 <- 99 # FILL IN
-
-# Scenario 2
-ps2 <- (1 + exp(b0*one + b1*z1))^(-1) # z3 omitted
-y2 <- b0*one + b1*z1 + b3*z3 # Same as y1
-
-dr1_2 <-  99 # FILL IN
-dr0_2 <- 99 # FILL IN
-
-# Scenario 3
-ps3 <- (1 + exp(b0*one + b1*z1 + b3*z3))^(-1) # Same as ps1
-y3 <- y2 <- b0*one + b1*z1 # z3 omitted
-
-dr1_3 <-  99 # FILL IN
-dr0_3 <- 99 # FILL IN
+ps1_t <- (1 + exp(b0 + b1*treat$z1 + b3*treat$z3))^(-1)
+yhat1 <- b0 + b1*treat$z1 + b3*treat$z3
+yhat0 <- 99 # ???
 ```
+
+
 
