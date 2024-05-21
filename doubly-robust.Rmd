@@ -5,6 +5,21 @@ set.seed(0)
 ```
 
 ```{r}
+# Notation
+
+# Parameters (betas)
+# b<subscript>_<exposure>_<scenario>
+# Ex: b1_c_1 is beta 1 for the scenario 1 outcome regression model 
+  # estimated on the control data (c)
+
+# Simple estimates (yhats)
+# yhat<estimated condition>_<true condition>_<scenario>
+# Ex:
+
+# Doubly robust estimates (drs) 
+```
+
+```{r}
 n = 100
 
 # GENERATE IVs
@@ -44,31 +59,44 @@ control <- data %>% filter(x == 0)
 # Scenario 1
 
 # Estimate betas
-mod1_1 <- lm(y ~ x + z1 + z3, data = treat)
-mod0_1 <- lm(y ~ x + z1 + z3, data = control)
+# b<subscript>_<exposure>_<scenario>
+modt_1 <- lm(y ~ x + z1 + z3, data = treat)
+modc_1 <- lm(y ~ x + z1 + z3, data = control)
 
-b0_1_1 <- mod1_1$coefficients[1]
-b1_1_1 <- mod1_1$coefficients[3]
-b3_1_1 <- mod1_1$coefficients[4]
+b0_t_1 <- modt_1$coefficients[1]
+b1_t_1 <- modt_1$coefficients[3]
+b3_t_1 <- modt_1$coefficients[4]
 
-b0_1_0 <- mod0_1$coefficients[1]
-b1_1_0 <- mod0_1$coefficients[3]
-b3_1_0 <- mod0_1$coefficients[4]
+b0_c_1 <- modc_1$coefficients[1]
+b1_c_1 <- modc_1$coefficients[3]
+b3_c_1 <- modc_1$coefficients[4]
 
 # Estimate propensity scores and conditional means using betas
-ps1_t <- (1 + exp(b0_1_1 + b1_1_1*treat$z1 + b3_1_1*treat$z3))^(-1) # Betas estimated on X=1
-yhat1_t <- b0_1_1 + b1_1_1*treat$z1 + b3_1_1*treat$z3 # Betas estimated on X=1
-yhat0_t <- b0_1_0 + b1_1_0*treat$z1 + b3_1_0*treat$z3 # Betas estimated on X=0
+ps_t_1 <- (1 + exp(b0_t_1 + b1_t_1*treat$z1 + b3_t_1*treat$z3))^(-1) # Betas estimated on X=1 (t)
+yhat1_t_1 <- b0_t_1 + b1_t_1*treat$z1 + b3_t_1*treat$z3 # Betas estimated on X=1 (t)
+yhat0_t_1 <- b0_c_1 + b1_c_1*treat$z1 + b3_c_1*treat$z3 # Betas estimated on X=0 (c)
 
-treat <- treat %>% mutate(ps1 = ps1_t,
-                          yhat1 = yhat1_t,
-                          yhat0 = yhat0_t)
+treat <- treat %>% mutate(ps_t_1 = ps_t_1,
+                          yhat1_t_1 = yhat1_t_1,
+                          yhat0_t_1 = yhat0_t_1)
 
 treat <- treat %>% mutate(
-  dr1_1 = ((y / ps1) - ((yhat1 * (1 - ps1)) / ps1))
+  dr1_t_1 = ((y / ps_t_1) - ((yhat1_t_1 * (1 - ps_t_1)) / ps_t_1))
 )
+# dr0_c_1 is just yhat0_t_1
 
-head(treat)
+ps_c_1 <- (1 + exp(b0_c_1 + b1_c_1*control$z1 + b3_c_1*control$z3))^(-1) # Betas estimated on X=0 (c)
+yhat1_c_1 <- b0_t_1 + b1_t_1*control$z1 + b3_t_1*control$z3 # Betas estimated on X=1 (t)
+yhat0_c_1 <- b0_c_1 + b1_c_1*control$z1 + b3_c_1*control$z3 # Betas estimated on X=0 (c)
+
+control <- control %>% mutate(ps_c_1 = ps_c_1,
+                          yhat1_c_1 = yhat1_c_1,
+                          yhat0_c_1 = yhat0_c_1)
+
+control <- control %>% mutate(
+  dr0_c_1 = ((y / ps_c_1) - ((yhat0_c_1 * (1 - ps_c_1)) / ps_c_1))
+  
+# dr1_c_1 is just yhat1_c_1
 ```
 
 
