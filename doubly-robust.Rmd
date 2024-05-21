@@ -40,7 +40,7 @@ b3_0 = 1
 ps <- (1 + exp(b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3))^(-1)
 
 # Calculate exposure
-x <- ifelse(ps + runif(n, min = 0, max = 1) < 0.91, 1, 0)
+d <- ifelse(ps + runif(n, min = 0, max = 1) < 0.91, 1, 0)
 
 # GENERATE TRUE OUTCOMES
 b4_0 <- 2
@@ -48,9 +48,9 @@ z4 <- rnorm(n, mean = 0, sd = 1)
 y <- b1_0*z1 + b3_0*z3 + b4_0*z4
 
 # TRUE DATA
-data <- tibble(z1, z2, z3, x, ps, y)
-treat <- data %>% filter(x == 1)
-control <- data %>% filter(x == 0)
+data <- tibble(z1, z2, z3, d, ps, y)
+treat <- data %>% filter(d == 1)
+control <- data %>% filter(d == 0)
 ```
 
 ```{r}
@@ -60,8 +60,8 @@ control <- data %>% filter(x == 0)
 
 # Estimate betas
 # b<subscript>_<exposure>_<scenario>
-modt_1 <- lm(y ~ x + z1 + z3, data = treat)
-modc_1 <- lm(y ~ x + z1 + z3, data = control)
+modt_1 <- lm(y ~ z1 + z3, data = treat)
+modc_1 <- lm(y ~ z1 + z3, data = control)
 
 b0_t_1 <- modt_1$coefficients[1]
 b1_t_1 <- modt_1$coefficients[3]
