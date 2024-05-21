@@ -81,8 +81,7 @@ treat <- treat %>% mutate(ps_t_1 = ps_t_1,
                           yhat0_t_1 = yhat0_t_1)
 
 treat <- treat %>% mutate(
-  dr1_t_1 = ((y / ps_t_1) - ((yhat1_t_1 * (1 - ps_t_1)) / ps_t_1))
-)
+  dr1_t_1 = ((y / ps_t_1) - ((yhat1_t_1 * (1 - ps_t_1)) / ps_t_1)))
 # dr0_c_1 is just yhat0_t_1
 
 ps_c_1 <- (1 + exp(b0_c_1 + b1_c_1*control$z1 + b3_c_1*control$z3))^(-1) # Betas estimated on X=0 (c)
@@ -94,10 +93,12 @@ control <- control %>% mutate(ps_c_1 = ps_c_1,
                           yhat0_c_1 = yhat0_c_1)
 
 control <- control %>% mutate(
-  dr0_c_1 = ((y / ps_c_1) - ((yhat0_c_1 * (1 - ps_c_1)) / ps_c_1))
-  
+  dr0_c_1 = ((y / ps_c_1) - ((yhat0_c_1 * (1 - ps_c_1)) / ps_c_1)))
 # dr1_c_1 is just yhat1_c_1
+
+# Estimate ATE
+dr1_1 <- c(treat$dr1_t_1, control$yhat1_c_1)
+dr0_1 <- c(treat$yhat0_t_1, control$dr0_c_1)
+(ate_1 <- mean(dr1_1) - mean(dr0_1))
 ```
-
-
 
