@@ -20,7 +20,7 @@ set.seed(0)
 ```
 
 ```{r}
-n = 100
+n = 2000
 
 # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
@@ -29,14 +29,13 @@ z3 <- replicate(n, ifelse(rnorm(1, mean = 0, sd = 1) <= 0.3, 1, 0))
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
 
-# Set betas for "true" data
+# Set betas for true model
 b0_0 = 1.5
 b1_0 = 1
 b2_0 = -2
 b3_0 = 1
 
 # Calculate true propensity scores (logit)
-# TODO: Confirm R broadcasts b0 to correct length
 ps <- (1 + exp(b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3))^(-1)
 
 # Calculate exposure
@@ -49,56 +48,26 @@ y <- b1_0*z1 + b3_0*z3 + b4_0*z4
 
 # TRUE DATA
 data <- tibble(z1, z2, z3, d, ps, y)
-treat <- data %>% filter(d == 1)
-control <- data %>% filter(d == 0)
 ```
+
 
 ```{r}
 # GENERATE ESTIMATED OUTCOMES
 
 # Scenario 1
 
-# Estimate betas
-# b<subscript>_<exposure>_<scenario>
-modt_1 <- lm(y ~ z1 + z3, data = treat)
-modc_1 <- lm(y ~ z1 + z3, data = control)
+# Fit propensity score model
+ps_1 <- glm(d ~ z1 + z3, data = data, family = 'binomial') # Logit
 
-b0_t_1 <- modt_1$coefficients[1]
-b1_t_1 <- modt_1$coefficients[3]
-b3_t_1 <- modt_1$coefficients[4]
+# Predict propensity scores
+data <- data %>% mutate(ps1 = predict(ps_1, data))
 
-b0_c_1 <- modc_1$coefficients[1]
-b1_c_1 <- modc_1$coefficients[3]
-b3_c_1 <- modc_1$coefficients[4]
+# Fit outcome regression models
+modt_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
+modc_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
 
-# Estimate propensity scores and conditional means using betas
-ps_t_1 <- (1 + exp(b0_t_1 + b1_t_1*treat$z1 + b3_t_1*treat$z3))^(-1) # Betas estimated on X=1 (t)
-yhat1_t_1 <- b0_t_1 + b1_t_1*treat$z1 + b3_t_1*treat$z3 # Betas estimated on X=1 (t)
-yhat0_t_1 <- b0_c_1 + b1_c_1*treat$z1 + b3_c_1*treat$z3 # Betas estimated on X=0 (c)
-
-treat <- treat %>% mutate(ps_t_1 = ps_t_1,
-                          yhat1_t_1 = yhat1_t_1,
-                          yhat0_t_1 = yhat0_t_1)
-
-treat <- treat %>% mutate(
-  dr1_t_1 = ((y / ps_t_1) - ((yhat1_t_1 * (1 - ps_t_1)) / ps_t_1)))
-# dr0_c_1 is just yhat0_t_1
-
-ps_c_1 <- (1 + exp(b0_c_1 + b1_c_1*control$z1 + b3_c_1*control$z3))^(-1) # Betas estimated on X=0 (c)
-yhat1_c_1 <- b0_t_1 + b1_t_1*control$z1 + b3_t_1*control$z3 # Betas estimated on X=1 (t)
-yhat0_c_1 <- b0_c_1 + b1_c_1*control$z1 + b3_c_1*control$z3 # Betas estimated on X=0 (c)
-
-control <- control %>% mutate(ps_c_1 = ps_c_1,
-                          yhat1_c_1 = yhat1_c_1,
-                          yhat0_c_1 = yhat0_c_1)
-
-control <- control %>% mutate(
-  dr0_c_1 = ((y / ps_c_1) - ((yhat0_c_1 * (1 - ps_c_1)) / ps_c_1)))
-# dr1_c_1 is just yhat1_c_1
-
-# Estimate ATE
-dr1_1 <- c(treat$dr1_t_1, control$yhat1_c_1)
-dr0_1 <- c(treat$yhat0_t_1, control$dr0_c_1)
-(ate_1 <- mean(dr1_1) - mean(dr0_1))
+# Predict outcomes
+data <- data %>% mutate(yhat1_1 = predict(modt_1, data))
+data <- data %>% mutate(yhat0_1 = predict(modc_1, data))
 ```
 
