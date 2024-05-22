@@ -1,3 +1,18 @@
+---
+---
+---
+
+## How
+
+First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, to avoid confusion given you’ll often see $X$ used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
+
+$\textbf{Z}$ are characteristics (that is, covariates) of individuals in our data\
+$D$ is a binary treatment indicator equal to $1$ if an individual is exposed to treatment or $0$ if they aren’t\
+$Y_{D=1}$ and $Y_{D=0}$ are *observed* outcomes for individuals in the treatment and control groups, respectively\
+$\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ are *predicted* outcomes under treatment and control, respectively\
+$m1(\textbf{Z_i}, \hat{\alpha}_1)$ and $m0(\textbf{Z_i}, \hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $\textbf{Z_i}$ are that individual's characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics [\^1]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly\
+$PS=P[D=1|\textbf{Z}]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics\
+$e(\textbf{Z_i}, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $\textbf{Z_i}$ are once again and individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
 
 ```{r}
 library(tidyverse)
@@ -35,7 +50,6 @@ y <- b1_0*z1 + b3_0*z3 + b4_0*z4
 data <- tibble(z1, z2, z3, d, ps, y)
 ```
 
-
 ```{r}
 # GENERATE ESTIMATED OUTCOMES
 
@@ -68,4 +82,3 @@ data <- data %>% mutate(dr1_1 =
 # Compute ATE
 (mean(data$dr1_1) - mean(data$dr1_0))
 ```
-
