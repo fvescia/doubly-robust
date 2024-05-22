@@ -5,21 +5,6 @@ set.seed(0)
 ```
 
 ```{r}
-# Notation
-
-# Parameters (betas)
-# b<subscript>_<exposure>_<scenario>
-# Ex: b1_c_1 is beta 1 for the scenario 1 outcome regression model 
-  # estimated on the control data (c)
-
-# Simple estimates (yhats)
-# yhat<estimated condition>_<true condition>_<scenario>
-# Ex:
-
-# Doubly robust estimates (drs) 
-```
-
-```{r}
 n = 2000
 
 # GENERATE IVs
@@ -69,5 +54,18 @@ modc_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
 # Predict outcomes
 data <- data %>% mutate(yhat1_1 = predict(modt_1, data))
 data <- data %>% mutate(yhat0_1 = predict(modc_1, data))
+
+# Compute doubly robust estimates
+data <- data %>% mutate(dr1_1 = 
+                          ifelse(d == 1, 
+                                 ((y / ps1) - ((yhat1_1 * (1 - ps1)) / (ps1))),
+                                 (yhat1_1)),
+                        dr1_0 =
+                          ifelse(d == 1,
+                                 (yhat0_1),
+                                 ((y / (1 - ps1) - ((yhat0_1 * ps1) / (1 - ps1))))))
+
+# Compute ATE
+(mean(data$dr1_1) - mean(data$dr1_0))
 ```
 
