@@ -53,7 +53,7 @@ n = 200000
 # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
 z2 <- rnorm(n, mean = 0, sd = 1)
-z3 <- replicate(n, ifelse(rnorm(1, mean = 0, sd = 1) <= 0.3, 1, 0))
+z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0))
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
 
@@ -84,9 +84,16 @@ data <- tibble(z1, z2, z3, d, ps, y)
 mean(data$d)
 ```
 
+> The resulting outcome variable had a mean of 0.2 and a standard deviation of 2.3
+
+```{r}
+(mean(data$y))
+(sd(data$y))
+```
+
 **TODO:** Rephrase Funk et al. excerpts (block quotes) in my own words
 
-> The doubly robust estimator requires us to specify regression models for the outcome and the exposure as a function of covariates. In the case of this particular doubly robust estimator, we model the relations between confounders and the outcome within each exposure group. 
+> The doubly robust estimator requires us to specify regression models for the outcome and the exposure as a function of covariates. In the case of this particular doubly robust estimator, we model the relations between confounders and the outcome within each exposure group.
 
 ```{r}
 # SCENARIO 1
@@ -95,16 +102,16 @@ modt_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
 modc_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
 ```
 
- > The resulting parameter estimates are used to calculate the predicted response ($\hat{Y_0}$ and $\hat{Y_1}$) for each individual in the population under the 2 exposure conditions ($D=1$ and $D=0$ given covariate values ($\bf{Z}$). 
- 
+> The resulting parameter estimates are used to calculate the predicted response ($\hat{Y_0}$ and $\hat{Y_1}$) for each individual in the population under the 2 exposure conditions ($D=1$ and $D=0$ given covariate values ($\bf{Z}$).
+
 ```{r}
 # SCENARIO 1
 # Predict outcomes
 data <- data %>% mutate(yhat1_1 = predict(modt_1, data))
 data <- data %>% mutate(yhat0_1 = predict(modc_1, data))
 ```
- 
-> In addition, we model the exposure as a function of covariates to estimate the PS (or predicted probability of exposure conditional on covariates, $\bf{Z}$) for each individual using the observed data. These quantities are all subject specific, but we have omitted the additional subscript ($i$) for readability. 
+
+> In addition, we model the exposure as a function of covariates to estimate the PS (or predicted probability of exposure conditional on covariates, $\bf{Z}$) for each individual using the observed data. These quantities are all subject specific, but we have omitted the additional subscript ($i$) for readability.
 
 ```{r}
 # SCENARIO 1
@@ -127,7 +134,6 @@ For $D=0$ & $\hat{Y_1}$ & $\frac{Y_{D=0}}{1-PS}-\frac{\hat{Y_0}\left(PS\right)}{
 \end{tabular}
 \end{table}
 ```
-
 ```{r}
 # SCENARIO 1
 
@@ -154,9 +160,10 @@ data <- data %>% mutate(dr1_1 =
 
 **TODO:** Rephrase this in my own words
 
->  Closer examination of the equation for this doubly robust estimator suggests an intuitive explanation of the doubly robust property. With minor manipulation, it can be represented as an estimator for the quantity of interest (the mean response if everyone had been exposed/unexposed) plus a second term referred to as the "augmentation." This component is formed by taking the product of 2 bias terms—one from the PS model and one from the outcome regression model. If either bias term equals zero (as is the case when one of the models is correct), then it "zeros out" the other, nonzero bias term from the incorrect model. Thus, if either the PS or the outcome regression models are correctly specified, then the "augmentation" term reduces to zero so that $DR_1$ estimates $E[Y_{D=1}]$ and, likewise, $DR_0$ estimates $E[X_{Y=0}]$.
+> Closer examination of the equation for this doubly robust estimator suggests an intuitive explanation of the doubly robust property. With minor manipulation, it can be represented as an estimator for the quantity of interest (the mean response if everyone had been exposed/unexposed) plus a second term referred to as the "augmentation." This component is formed by taking the product of 2 bias terms—one from the PS model and one from the outcome regression model. If either bias term equals zero (as is the case when one of the models is correct), then it "zeros out" the other, nonzero bias term from the incorrect model. Thus, if either the PS or the outcome regression models are correctly specified, then the "augmentation" term reduces to zero so that $DR_1$ estimates $E[Y_{D=1}]$ and, likewise, $DR_0$ estimates $E[X_{Y=0}]$.
 
----
+------------------------------------------------------------------------
+
 ## All code in one place
 
 ```{r}
@@ -191,7 +198,6 @@ data <- data %>% mutate(dr1_1 =
 # Compute ATE
 (mean(data$dr1_1) - mean(data$dr1_0))
 ```
-
 
 ```{r}
 gen_ate <- function(s, n){
@@ -330,4 +336,3 @@ for (n in c(10, 20, 30)){
 # Drop starter row
 (tab <- tab[2:nrow(tab), ])
 ```
-
