@@ -1,18 +1,44 @@
 ---
----
+output: pdf_document
 ---
 
-## How
+# Doubly Robust Estimation of Causal Effects
+
+Welcome! This is a conversational introduction to doubly robust estimation. Largely following [[Funk et al. 2011]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/), we’ll talk about what doubly robust estimation is and why we do it; break down a simple doubly robust estimator to understand how it works; and run some simulations to see our estimator in action.
+
+## What and why
+
+I like to think of “causal inference” as a catch-all term for the tools we have to figure out whether relationships we see in the world are cause and effect or just coincidence. Often, we learn about these relationships by modeling them: we collect data on something we’re curious about and fit models to that data to help us see the patterns in it. Models capture patterns in the data in the form of numerical estimates.
+
+But fitting models to data almost always requires making some assumptions about how the world works. For example, when we fit a linear regression model, we assume the relationship we are quantifying is linear. And when we misspecify our models – that is, when our assumptions about the world are wrong – the estimates our models produce are poor.
+
+Doubly robust estimation is one way to help insure our estimates against bad assumptions. It combines two modeling strategies, propensity score estimation and outcome regression modeling, in such a way that as long as one of the two models is correct, our estimates will be unbiased – even if the other model is misspecified.
+
+You can think of doubly robust estimation as statistics’ version of the [[Swiss cheese model]{.underline}](https://www.nytimes.com/2020/12/05/health/coronavirus-swiss-cheese-infection-mackay.html). Each modeling strategy – propensity score estimation and outcome regression modeling – is a layer of defense against bias. Neither is perfect, but by layering the strategies on top of each other, we give ourselves more opportunities to block bias from degrading our estimates.
+
+## Some housekeeping
 
 First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, to avoid confusion given you’ll often see $X$ used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
 
-$\textbf{Z}$ are characteristics (that is, covariates) of individuals in our data\
-$D$ is a binary treatment indicator equal to $1$ if an individual is exposed to treatment or $0$ if they aren’t\
-$Y_{D=1}$ and $Y_{D=0}$ are *observed* outcomes for individuals in the treatment and control groups, respectively\
-$\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ are *predicted* outcomes under treatment and control, respectively\
-$m1(\textbf{Z_i}, \hat{\alpha}_1)$ and $m0(\textbf{Z_i}, \hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $\textbf{Z_i}$ are that individual's characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics [\^1]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly\
-$PS=P[D=1|\textbf{Z}]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics\
-$e(\textbf{Z_i}, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $\textbf{Z_i}$ are once again and individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
+$\bf{Z}$ are characteristics (that is, covariates) of individuals in our data
+
+$D$ is a binary treatment indicator equal to $1$ if an individual is exposed to treatment or $0$ if they aren’t
+
+$Y_{D=1}$ and $Y_{D=0}$ are *observed* outcomes for individuals in the treatment and control groups, respectively
+
+$\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ are *predicted* counterfactual outcomes under treatment and control, respectively [^1]
+
+[^1]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly
+
+$m1(\bf{Z_i}$$, \hat{\alpha}_1)$ and $m0(\bf{Z_i}$$, \hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $\bf{Z_i}$ are that individual's characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics
+
+$PS=P[D=1|\bf{Z}]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics
+
+$e(\bf{Z_i}$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $\bf{Z_i}$ are once again and individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
+
+Also, a few assumptions. Briefly, **positivity** or overlap assumes every individual in the data had some chance of receiving treatment: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency** or the stable unit treatment assumption (SUTVA) assumes every individual has a single, stable potential outcome for each possible treatment: formally, Yi(d) = Yi if Di = d. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary. Finally, **ignorability**, unconfoundedness, or exchangeability assumes no selection-into-treatment bias. Put another way, it assumes treatment is independent of the potential outcomes. Ignorability allows us to assume the treatment and control groups are both representative of the sample as a whole, which means we can take quantities estimated on either group as representative of the sample. This is what allows us to interpret differences in outcomes between the treatment and control groups as average treatment effects, and it’s also key to understanding the doubly robust estimator we’re about to break down.
+
+## A simple doubly robust estimator
 
 ```{r}
 library(tidyverse)
