@@ -48,7 +48,7 @@ library(tidyverse)
 
 ```{r}
 # GENERATE "TRUE" DATE PER FUNK ET AL. 2011
-n = 2000
+n = 200000
 
 # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
@@ -64,10 +64,10 @@ b2_0 = -2
 b3_0 = 1
 
 # Calculate true propensity scores (logit)
-ps <- (1 + exp(b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3))^(-1)
+ps <- (1 + exp(-1 * (b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)))^(-1)
 
 # Calculate exposure
-d <- ifelse(ps + runif(n, min = 0, max = 1) < 0.91, 1, 0)
+d <- ifelse((ps + runif(n, min = 0, max = 1)) < 0.91, 1, 0)
 
 # GENERATE TRUE OUTCOMES
 b4_0 <- 2
@@ -76,6 +76,12 @@ y <- b1_0*z1 + b3_0*z3 + b4_0*z4
 
 # TRUE DATA
 data <- tibble(z1, z2, z3, d, ps, y)
+```
+
+> The resulting exposure variable had a p(D=1) = 0.2
+
+```{r}
+mean(data$d)
 ```
 
 **TODO:** Rephrase Funk et al. excerpts (block quotes) in my own words
@@ -186,10 +192,125 @@ data <- data %>% mutate(dr1_1 =
 (mean(data$dr1_1) - mean(data$dr1_0))
 ```
 
+
 ```{r}
-# Ari's debugging code
-(mean(data$yhat1_1 - data$yhat0_1))
-(mean((d/data$ps1 - (1-d)/data$ps1) * data$y))
-(mean(data$dr1_1) - mean(data$dr1_0))
+gen_ate <- function(s, n){
+# GENERATE IVs
+z1 <- rnorm(n, mean = 0, sd = 1)
+z2 <- rnorm(n, mean = 0, sd = 1)
+z3 <- replicate(n, ifelse(rnorm(1, mean = 0, sd = 1) <= 0.3, 1, 0))
+
+# GENERATE EXPOSURE AS A FUNCTION OF IVs
+
+# Set betas for true model
+b0_0 = 1.5
+b1_0 = 1
+b2_0 = -2
+b3_0 = 1
+
+# Calculate true propensity scores (logit)
+ps <- (1 + exp(-1 * (b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)))^(-1)
+
+# Calculate exposure
+d <- ifelse((ps + runif(n, min = 0, max = 1)) < 0.91, 1, 0)
+
+# GENERATE TRUE OUTCOMES
+b4_0 <- 2
+z4 <- rnorm(n, mean = 0, sd = 1)
+y <- b1_0*z1 + b3_0*z3 + b4_0*z4
+
+# TRUE DATA
+data <- tibble(z1, z2, z3, d, ps, y)
+
+# GENERATE ESTIMATED OUTCOMES
+
+# Fit models
+
+# Scenario 1
+if (s == 1){
+  # Fit outcome regression models
+  mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
+  mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
+
+  # Fit propensity score model
+  ps <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+}
+
+# Scenario 2
+if (s == 2){
+  # Fit outcome regression models
+  mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
+  mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
+
+  # Fit propensity score model
+  # Note z3 omitted
+  ps <- glm(d ~ z1, data = data, family = 'binomial')
+}
+
+# Scenario 3
+if (s == 2){
+  # Fit outcome regression models
+  # Note z3 omitted
+  mod_t <- lm(y ~ z1, data = data %>% filter(d == 1))
+  mod_c <- lm(y ~ z1, data = data %>% filter(d == 0))
+
+  # Fit propensity score model
+  ps <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+}
+
+# Predict outcomes
+data <- data %>% mutate(yhat1 = predict(mod_t, data))
+data <- data %>% mutate(yhat0 = predict(mod_c, data))
+
+# Predict propensity scores
+data <- data %>% mutate(ps = predict(ps, data))
+
+# Compute doubly robust estimates
+data <- data %>% mutate(dr1 = 
+                          ifelse(d == 1, 
+                                 ((y / ps) - ((yhat1 * (1 - ps)) / (ps))),
+                                 (yhat1)),
+                        dr1 =
+                          ifelse(d == 1,
+                                 (yhat0),
+                                 ((y / (1 - ps) - ((yhat0 * ps) / (1 - ps))))))
+
+# Compute ATE
+return (mean(data$dr1) - mean(data$dr1))
+}
+```
+
+```{r}
+ates <- c()
+for (n in 1:2000){
+  ate = gen_ate(2000)
+  ates = append(ates, ate)
+}
+
+(mean(ates))
+```
+
+```{r}
+df <- tibble(scenario = 99, sample_size = 99, bias = 99)
+```
+
+```{r}
+# 3 scenarios
+for (s in 1:3){
+  # 4 sample sizes per scenario
+  for (n in c(100, 500, 1000, 2000)){
+    # 1000 simulations per sample size
+    ates = c()
+    for (i in 1:1000){
+      ate = gen_ate(s, n)
+      ates = append(ates, ate)
+    }
+    # No true effect per DGP; any effect is bias
+    bias = mean(ates)
+    df = df %>% add_row(scenario = s, sample_size = n, bias = bias)
+  }
+}
+
+(df <- df[2:nrow(df), ])
 ```
 
