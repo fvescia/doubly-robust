@@ -281,20 +281,11 @@ return (mean(data$dr1) - mean(data$dr1))
 ```
 
 ```{r}
-ates <- c()
-for (n in 1:2000){
-  ate = gen_ate(2000)
-  ates = append(ates, ate)
-}
-
-(mean(ates))
-```
-
-```{r}
+# "Starter row" to create table
 df <- tibble(scenario = 99, sample_size = 99, bias = 99)
-```
 
-```{r}
+# Populate table
+
 # 3 scenarios
 for (s in 1:3){
   # 4 sample sizes per scenario
@@ -311,6 +302,32 @@ for (s in 1:3){
   }
 }
 
+# Drop starter row
 (df <- df[2:nrow(df), ])
+```
+
+```{r}
+# TOY SIMULATION
+
+# Set up
+avgs <- c()
+tab <- tibble(n = 99, avg = 99)
+
+# Simulate 10 cohorts of size n
+for (n in c(10, 20, 30)){
+  for (i in 1:10){
+  df <- tibble(x = 1:10, y = rnorm(10, mean = 0, sd = 1))
+  # Bootstrap 10 complete resamples per cohort
+    for (i in 1:10){
+      resamp <- df %>% slice_sample(prop=1, replace=T)
+      avgs <- append(avgs, mean(resamp$y))
+    }
+  }
+  avg <- mean(avgs)
+  tab <- tab %>% add_row(n = n, avg = avg)
+}
+
+# Drop starter row
+(tab <- tab[2:nrow(tab), ])
 ```
 
