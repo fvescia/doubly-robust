@@ -1,8 +1,9 @@
 ---
+title: Doubly Robust Estimation of Causal Effects
+author: Francesca Vescia
+date: Spring 2024
 output: pdf_document
 ---
-
-# Doubly Robust Estimation of Causal Effects
 
 Welcome! This is a conversational introduction to doubly robust estimation. Largely following [[Funk et al. 2011]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/), we’ll talk about what doubly robust estimation is and why we do it; break down a simple doubly robust estimator to understand how it works; and run some simulations to see our estimator in action.
 
@@ -42,7 +43,9 @@ Also, a few assumptions. Briefly, **positivity** or overlap assumes every indivi
 
 ## A simple doubly robust estimator
 
-Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [Web Appendix 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics ($\bf{Z}$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
+Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [Web Appendix 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics ($\bf{Z}$ [^2]), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
+
+[^2]: The $Z_2$ / `z2` characteristic is only used for data generation, so you won't see it anywhere in this document.
 
 ```{r, echo=FALSE, message=FALSE}
 library(tidyverse)
@@ -50,7 +53,7 @@ library(tidyverse)
 
 ```{r, echo=FALSE, message=FALSE}
 # GENERATE "TRUE" DATE PER FUNK ET AL. 2011
-n = 200000
+n = 2000
 
 # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
@@ -84,7 +87,7 @@ data <- tibble(z1, z2, z3, d, ps, y)
 (sd(data$y)) # Expect sd = 2.3
 ```
 
-Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model - that way we can see double robustness at work.
+Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model - that way we can see double robustness at work. (For anyone following along in Funk et al., this is their Scenario 3.)
 
 Let's start with our outcomes: we model the relationships between characteristics ($\bf{Z}$) and outcomes ($Y$) in each exposure group, then use those models to predict outcomes ($\hat{Y}$) for everyone. This means each individual has one *observed* outcome, for the condition they are assigned to, and two *predicted* outcomes, one each for treatment and control.
 
@@ -98,20 +101,17 @@ data <- data %>% mutate(yhat1 = predict(mod_t, data))
 data <- data %>% mutate(yhat0 = predict(mod_c, data))
 ```
 
-Now let's fit our propensity score model, purposefully leaving out
-> In addition, we model the exposure as a function of covariates to estimate the PS (or predicted probability of exposure conditional on covariates, $\bf{Z}$) for each individual using the observed data. These quantities are all subject specific, but we have omitted the additional subscript ($i$) for readability.
+Now let's fit our propensity score model, purposefully leaving out $Z_3$, and the resulting, *misspecified* model to predict propensity scores:
 
 ```{r}
-# SCENARIO 1
-
-# Fit propensity score model
-ps <- glm(d ~ z1 + z3, data = data, family = 'binomial') # Logit
+# Fit propensity score logit model
+ps_mod <- glm(d ~ z1 + z3, data = data, family = 'binomial')
 
 # Predict propensity scores
-data <- data %>% mutate(ps = predict(ps, data))
+data <- data %>% mutate(ps_hat = predict(ps_mod, data))
 ```
 
-> Having estimated the PS,$\hat{Y_0}$ and $\hat{Y_1}$, we combine these values as shown in Table 1 to calculate the doubly robust ($DR$) estimates of response in the presence and absence of exposure ($DR_1$ and $DR_0$, respectively) for each individual.
+And now, the fun part! We take our estimated outcomes and propensity scores and combine them to calculate doubly robust outcome estimates as shown in the table below. Just like when we calculated our regression-based $\hat{Y}s$, each person gets two estimates, one each for treatment and control.
 
 ```{=tex}
 \begin{table}[h]
@@ -123,202 +123,30 @@ For $D=0$ & $\hat{Y_1}$ & $\frac{Y_{D=0}}{1-PS}-\frac{\hat{Y_0}\left(PS\right)}{
 \end{table}
 ```
 ```{r}
-# SCENARIO 1
-
 # Compute doubly robust estimates
 data <- data %>% mutate(dr1 = 
                           ifelse(d == 1, 
-                                 ((y / ps1) - ((yhat1_1 * (1 - ps1)) / (ps1))),
-                                 (yhat1_1)),
+                                 ((y / ps_hat) - ((yhat1 * (1 - ps_hat)) / (ps_hat))),
+                                 (yhat1)),
                         dr0 =
                           ifelse(d == 1,
-                                 (yhat0_1),
-                                 ((y / (1 - ps1) - ((yhat0_1 * ps1) / (1 - ps1))))))
-
+                                 (yhat0),
+                                 ((y / (1 - ps_hat) - ((yhat0 * ps_hat) / (1 - ps_hat))))))
 ```
 
-> Finally, the means of $DR_1$ and $DR_0$ are calculated across the entire study population. The estimated means are used to calculate the difference or ratio effect measure (Funk et al. pp. 762-763).
+Finally, we take the averages of $DR_1$ and $DR_0$ across our entire sample and take the difference of those two averages as our estimated average treatment effect:
 
 ```{r}
-# SCENARIO 1
-
 # Compute ATE
 (mean(data$dr1) - mean(data$dr0))
 ```
 
-> Closer examination of the equation for this doubly robust estimator suggests an intuitive explanation of the doubly robust property. With minor manipulation, it can be represented as an estimator for the quantity of interest (the mean response if everyone had been exposed/unexposed) plus a second term referred to as the "augmentation." This component is formed by taking the product of 2 bias terms—one from the PS model and one from the outcome regression model. If either bias term equals zero (as is the case when one of the models is correct), then it "zeros out" the other, nonzero bias term from the incorrect model. Thus, if either the PS or the outcome regression models are correctly specified, then the "augmentation" term reduces to zero so that $DR_1$ estimates $E[Y_{D=1}]$ and, likewise, $DR_0$ estimates $E[X_{Y=0}]$.
+Let's think through what exactly is going on in the doubly robust estimator. You'll notice that that our doubly robust estimates of $DR_1$ for individuals in the control group and $DR_0$ for individuals in the treatment group are just $\hat{Y_1}$ and $\hat{Y_0}$, the predictions from our regression models. But our "within-condition" doubly robust estimates - that is, our $DR_1s$ for individuals in the treatment group and our $DR_0s$ for individuals in the control group - are a little fancier. We observe individuals' true outcomes under their assigned conditions, and we use that information together with our propensity score estimates to adjust our predictions.
 
-------------------------------------------------------------------------
+Some rearranging can help us see how these adjustments block bias[^3]. The ordering and notation are a little different, but this equation ultimately does exactly the same math as the equations in the table above:
 
-## All code in one place
+[^3]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
 
-```{r}
-# GENERATE ESTIMATED OUTCOMES
-
-# Scenario 1
-
-# Fit outcome regression models
-modt_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
-modc_1 <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
-
-# Predict outcomes
-data <- data %>% mutate(yhat1_1 = predict(modt_1, data))
-data <- data %>% mutate(yhat0_1 = predict(modc_1, data))
-
-# Fit propensity score model
-ps_1 <- glm(d ~ z1 + z3, data = data, family = 'binomial') # Logit
-
-# Predict propensity scores
-data <- data %>% mutate(ps1 = predict(ps_1, data))
-
-# Compute doubly robust estimates
-data <- data %>% mutate(dr1_1 = 
-                          ifelse(d == 1, 
-                                 ((y / ps1) - ((yhat1_1 * (1 - ps1)) / (ps1))),
-                                 (yhat1_1)),
-                        dr1_0 =
-                          ifelse(d == 1,
-                                 (yhat0_1),
-                                 ((y / (1 - ps1) - ((yhat0_1 * ps1) / (1 - ps1))))))
-
-# Compute ATE
-(mean(data$dr1_1) - mean(data$dr1_0))
-```
-
-```{r}
-gen_ate <- function(s, n){
-# GENERATE IVs
-z1 <- rnorm(n, mean = 0, sd = 1)
-z2 <- rnorm(n, mean = 0, sd = 1)
-z3 <- replicate(n, ifelse(runif(1, min = 0, max = 1) <= 0.3, 1, 0))
-
-# GENERATE EXPOSURE AS A FUNCTION OF IVs
-
-# Set betas for true model
-b0_0 = 1.5
-b1_0 = 1
-b2_0 = -2
-b3_0 = 1
-
-# Calculate true propensity scores (logit)
-ps <- (1 + exp(-1 * (b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)))^(-1)
-
-# Calculate exposure
-d <- ifelse((ps + runif(n, min = 0, max = 1)) < 0.91, 1, 0)
-
-# GENERATE TRUE OUTCOMES
-b4_0 <- 2
-z4 <- rnorm(n, mean = 0, sd = 1)
-y <- b1_0*z1 + b3_0*z3 + b4_0*z4
-
-# TRUE DATA
-data <- tibble(z1, z2, z3, d, ps, y)
-
-# GENERATE ESTIMATED OUTCOMES
-
-# Fit models
-
-# Scenario 1
-if (s == 1){
-  # Fit outcome regression models
-  mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
-  mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
-
-  # Fit propensity score model
-  ps <- glm(d ~ z1 + z3, data = data, family = 'binomial')
-}
-
-# Scenario 2
-if (s == 2){
-  # Fit outcome regression models
-  mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
-  mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
-
-  # Fit propensity score model
-  # Note z3 omitted
-  ps <- glm(d ~ z1, data = data, family = 'binomial')
-}
-
-# Scenario 3
-if (s == 2){
-  # Fit outcome regression models
-  # Note z3 omitted
-  mod_t <- lm(y ~ z1, data = data %>% filter(d == 1))
-  mod_c <- lm(y ~ z1, data = data %>% filter(d == 0))
-
-  # Fit propensity score model
-  ps <- glm(d ~ z1 + z3, data = data, family = 'binomial')
-}
-
-# Predict outcomes
-data <- data %>% mutate(yhat1 = predict(mod_t, data))
-data <- data %>% mutate(yhat0 = predict(mod_c, data))
-
-# Predict propensity scores
-data <- data %>% mutate(ps = predict(ps, data))
-
-# Compute doubly robust estimates
-data <- data %>% mutate(dr1 = 
-                          ifelse(d == 1, 
-                                 ((y / ps) - ((yhat1 * (1 - ps)) / (ps))),
-                                 (yhat1)),
-                        dr1 =
-                          ifelse(d == 1,
-                                 (yhat0),
-                                 ((y / (1 - ps) - ((yhat0 * ps) / (1 - ps))))))
-
-# Compute ATE
-return (mean(data$dr1) - mean(data$dr1))
-}
-```
-
-```{r}
-# "Starter row" to create table
-df <- tibble(scenario = 99, sample_size = 99, bias = 99)
-
-# Populate table
-
-# 3 scenarios
-for (s in 1:3){
-  # 4 sample sizes per scenario
-  for (n in c(100, 500, 1000, 2000)){
-    # 1000 simulations per sample size
-    ates = c()
-    for (i in 1:1000){
-      ate = gen_ate(s, n)
-      ates = append(ates, ate)
-    }
-    # No true effect per DGP; any effect is bias
-    bias = mean(ates)
-    df = df %>% add_row(scenario = s, sample_size = n, bias = bias)
-  }
-}
-
-# Drop starter row
-(df <- df[2:nrow(df), ])
-```
-
-```{r}
-# TOY SIMULATION
-
-# Set up
-avgs <- c()
-tab <- tibble(n = 99, avg = 99)
-
-# Simulate 10 cohorts of size n
-for (n in c(10, 20, 30)){
-  for (i in 1:10){
-  df <- tibble(x = 1:10, y = rnorm(10, mean = 0, sd = 1))
-  # Bootstrap 10 complete resamples per cohort
-    for (i in 1:10){
-      resamp <- df %>% slice_sample(prop=1, replace=T)
-      avgs <- append(avgs, mean(resamp$y))
-    }
-  }
-  avg <- mean(avgs)
-  tab <- tab %>% add_row(n = n, avg = avg)
-}
-
-# Drop starter row
-(tab <- tab[2:nrow(tab), ])
-```
+$$
+\hat{\Delta}_{DR} = \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)] - \frac{1}{n}\sum_{i=1}^n[\frac{(1-D_i)Y_i}{1-e(Z_i,\hat{\beta})}-\frac{(D_i-e(Z_i,\hat{\beta}))}{1-e(Z,\hat{\beta})}m_0(Z_i,\hat{\alpha}_0)]
+$$
