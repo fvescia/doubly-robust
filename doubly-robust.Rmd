@@ -148,5 +148,16 @@ Some rearranging can help us see how these adjustments block bias[^3]. The order
 [^3]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
 
 $$
-\hat{\Delta}_{DR} = \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)] - \frac{1}{n}\sum_{i=1}^n[\frac{(1-D_i)Y_i}{1-e(Z_i,\hat{\beta})}-\frac{(D_i-e(Z_i,\hat{\beta}))}{1-e(Z,\hat{\beta})}m_0(Z_i,\hat{\alpha}_0)]
+\hat{\Delta}_{DR} = \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)] - \frac{1}{n}\sum_{i=1}^n[\frac{(1-D_i)Y_i}{1-e(Z_i,\hat{\beta})}+\frac{(D_i-e(Z_i,\hat{\beta}))}{1-e(Z,\hat{\beta})}m_0(Z_i,\hat{\alpha}_0)]
+$$
+
+The first term in each average is the inverse-propensity-weighted (IPW) estimator for the expected outcome under the a given condition (treatment on the left-hand side and control on the right). The second "augmentation" term serves two purposes: it increases efficiency, which is beyond the scope of this tutorial, and also gives us double robustness. To see how it does the latter, lets revisit our scenario from before - a correctly specified outcome regression model and a misspecified propensity score model - and consider the estimated outcome under treatment (the left-hand side average in the equation above; similar logic holds for the estimated outcome under control, the right-hand side average in the equation above).
+
+Here's another look at that left-hand side term. When $n$ is large, this sample average (top) estimates the population average (bottom):
+
+$$
+\frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)]
+$$
+$$
+\approx E[Y_{D=1}] + E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
 $$
