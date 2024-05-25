@@ -11,11 +11,13 @@ Welcome! This is a conversational introduction to doubly robust estimation. Larg
 
 I like to think of “causal inference” as a catch-all term for the tools we have to figure out whether relationships we see in the world are cause and effect or just coincidence. Often, we learn about these relationships by modeling them: we collect data on something we’re curious about and fit models to that data to help us see the patterns in it. Models capture patterns in the data in the form of numerical estimates.
 
-But fitting models to data almost always involves making some assumptions about how the world works. For example, when we fit a linear regression model, we assume the relationship we are quantifying is linear. And when we misspecify our models – that is, when our assumptions about the world are wrong – the estimates our models produce are poor.
+But fitting models to data almost always involves making some assumptions about how the world works. For example, when we fit a linear regression model, we assume the relationship we are quantifying is linear. And when we misspecify our models – that is, when our assumptions about the world are wrong – the estimates our models produce may reveal information about the relationships in the observed data, but do not reveal good information about the underlying causal relationships we may care about.
 
 Doubly robust estimation is one way to help insure our estimates against bad assumptions. It combines two modeling strategies, outcome regression modeling and propensity score estimation, in such a way that as long as one of the two models is correct, our estimates will be unbiased, even if the other model is misspecified.
+This tutorial primarily deals with construction of the estimator itself, under conditions where we assume that we can approximate either the outcome or the propensity score well with linear models. 
+We can relax assumptions about the complexity of the underlying functionals by incorporating cross-fitting as well, as described in [[Chernozhukov et al. 2018]{.underline}]https://arxiv.org/abs/1608.00060). This allows us to use machine learning methods for both the outcome and propensity score models, and can be particularly useful when the true relationship between the covariates and the outcome or treatment assignment is complex. 
 
-You can think of doubly robust estimation as statistics’ version of the [[Swiss cheese model]{.underline}](https://www.nytimes.com/2020/12/05/health/coronavirus-swiss-cheese-infection-mackay.html). Each modeling strategy – propensity score estimation and outcome regression modeling – is a layer of defense against bias. Neither is perfect, but by layering the strategies on top of each other, we give ourselves more opportunities to block bias from degrading our estimates.
+You can think of doubly robust estimation as statistics’ version of the [[Swiss cheese model]{.underline}](https://www.nytimes.com/2020/12/05/health/coronavirus-swiss-cheese-infection-mackay.html). Each modeling strategy – propensity score estimation and outcome regression modeling – is a layer of defense against bias. Neither may be perfect, but by layering the strategies on top of each other, we give ourselves more opportunities to block bias from degrading our estimates.
 
 ## Some housekeeping
 
@@ -31,9 +33,9 @@ $\hat{Y_1}$ and $\hat{Y_0}$ are *predicted* outcomes under treatment and control
 
 [^1]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly
 
-$m1(Z_i,\hat{\alpha}_1)$ and $m0(Z_i,\hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $Z_i$ are that individual's characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics
+$m1(Z_i,\hat{\alpha}_1)$ and $m0(Z_i,\hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $i$ indexes individuals, $Z_i$ are individual $i$'s characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics. 
 
-$PS=P[D=1|Z]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics
+$PS=P[D=1|Z]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics. 
 
 $e(Z_i$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $Z_i$ are once again an individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
 
