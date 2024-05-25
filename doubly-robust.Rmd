@@ -39,7 +39,7 @@ $e(Z_i$$, \hat{\beta})$ is the model we'll use to estimate the propensity score,
 
 $DR_1$ and $DR_0$ are the doubly robust estimated outcomes under treatment and control
 
-Also, a few assumptions. Briefly, **positivity** or overlap assumes every individual in the data had some chance of receiving treatment: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency** or the stable unit treatment assumption (SUTVA) assumes every individual has a single, stable potential outcome for each possible treatment: formally, Yi(d) = Yi if Di = d. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary. Finally, **exchangeability**, the assumption that the outcome distributions would be the same if the treatment assignments had been flipped, implies treatment assignment is independent of potential outcomes. As we will see, this assumption is key to making the doubly robust estimator work.
+Also, a few assumptions. Briefly, **positivity** or overlap assumes every individual in the data had some chance of receiving treatment: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency** or the stable unit treatment assumption (SUTVA) assumes every individual has a single, stable potential outcome for each possible treatment: formally, Yi(d) = Yi if Di = d. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary. Finally, **exchangeability**, the assumption that the outcome distributions would be the same if the treatment assignments had been flipped, implies treatment assignment is independent of potential outcomes.
 
 ## A simple doubly robust estimator
 
@@ -157,14 +157,41 @@ Here's another look at that left-hand side term. When $n$ is large, this sample 
 
 $$
 \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z_i,\hat{\beta}))}{e(Z_i,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)]
-$$ $$
+$$
+
+$$
 \approx E[Y_{D=1}] + E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
-$$ The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our target quantity. Let's see how the second term behaves in our scenario. Since we have the right outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$: $$
+$$ 
+
+The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our target quantity. Let's see how the second term behaves in our scenario. Since we have the right outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$:
+
+$$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
 $$
 
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])]
-$$ Now let's rearrange: $$
-E([\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])]|X,Z)
 $$
+
+Let's rearrange: 
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])|X,Z]
+$$
+
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}-E[Y|D=1,Z]])|D,Z]
+$$
+
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}|D,Z]-E[Y|D=1,Z])]
+$$
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}|Z]-E[Y_{D=1}|Z])]
+
+$$
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(0)] = E[0] = 0
+
+$$
+$E[Y_{D=1}|Z]-E[Y_{D=1}|Z]$, which comes from our correctly specified outcome regression model, reduces to zero, taking any bias our misspecified propensity score model would have otherwise introduced with it.
+
