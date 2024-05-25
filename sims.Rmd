@@ -13,7 +13,6 @@ z2 <- rnorm(n, mean = 0, sd = 1)
 z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0))
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
-
 # Set betas for true model
 b0_0 = 1.5
 b1_0 = 1
@@ -38,13 +37,144 @@ return(data)
 ```
 
 ```{r}
-data <- gen_data(2000)
+# SECNARIO 1
+# Both models correctly specified: gg
+
+gg_ate <- function(data){
+  # Fit correct outcome regression models within exposure groups
+  mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
+  mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
+  
+  # Predict outcomes for everyone
+  data <- data %>% mutate(yhat1 = predict(mod_t, data))
+  data <- data %>% mutate(yhat0 = predict(mod_c, data))
+  
+  # Fit correct propensity score model
+  ps_mod <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+  
+  # Predict propensity scores
+  data <- data %>% mutate(ps_hat = predict(ps_mod, data))
+  
+  # Compute doubly robust estimates
+  data <- data %>% mutate(dr1 = 
+                            ifelse(d == 1, 
+                                   ((y / ps_hat) - ((yhat1 * (1 - ps_hat)) / (ps_hat))),
+                                   (yhat1)),
+                          dr0 =
+                            ifelse(d == 1,
+                                   (yhat0),
+                                   ((y / (1 - ps_hat) - ((yhat0 * ps_hat) / (1 - ps_hat))))))
+  
+  # Estimate ATE
+  return(mean(data$dr1) - mean(data$dr0))
+}
+```
+
+```{r}
+# SCENARIO
+# Bad outcome regression model, good propensity score model: bg
+
+bg_ate <- function(data){
+  # Misspecify outcome regression models within exposure groups (omit z3)
+  mod_t <- lm(y ~ z1, data = data %>% filter(d == 1))
+  mod_c <- lm(y ~ z1, data = data %>% filter(d == 0))
+  
+  # Predict outcomes for everyone
+  data <- data %>% mutate(yhat1 = predict(mod_t, data))
+  data <- data %>% mutate(yhat0 = predict(mod_c, data))
+  
+  # Fit correct propensity score model
+  ps_mod <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+  
+  # Predict propensity scores
+  data <- data %>% mutate(ps_hat = predict(ps_mod, data))
+  
+  # Compute doubly robust estimates
+  data <- data %>% mutate(dr1 = 
+                            ifelse(d == 1, 
+                                   ((y / ps_hat) - ((yhat1 * (1 - ps_hat)) / (ps_hat))),
+                                   (yhat1)),
+                          dr0 =
+                            ifelse(d == 1,
+                                   (yhat0),
+                                   ((y / (1 - ps_hat) - ((yhat0 * ps_hat) / (1 - ps_hat))))))
+  
+  # Estimate ATE
+  return(mean(data$dr1) - mean(data$dr0))
+}
+```
+
+```{r}
+# SCENARIO 3  
+# Good outcome regression model, bad propensity score model: gb
+
+gb_ate <- function(data){
+  # Fit correct outcome regression models within exposure groups
+  mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
+  mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
+  
+  # Predict outcomes for everyone
+  data <- data %>% mutate(yhat1 = predict(mod_t, data))
+  data <- data %>% mutate(yhat0 = predict(mod_c, data))
+  
+  # Misspecify propensity score model (omit z3)
+  ps_mod <- glm(d ~ z1, data = data, family = 'binomial')
+  
+  # Predict propensity scores
+  data <- data %>% mutate(ps_hat = predict(ps_mod, data))
+  
+  # Compute doubly robust estimates
+  data <- data %>% mutate(dr1 = 
+                            ifelse(d == 1, 
+                                   ((y / ps_hat) - ((yhat1 * (1 - ps_hat)) / (ps_hat))),
+                                   (yhat1)),
+                          dr0 =
+                            ifelse(d == 1,
+                                   (yhat0),
+                                   ((y / (1 - ps_hat) - ((yhat0 * ps_hat) / (1 - ps_hat))))))
+  
+  # Estimate ATE
+  return(mean(data$dr1) - mean(data$dr0))
+}
 ```
 
 
 ```{r}
-# gg - both models correctly specified (Scenario 1)
-# bg - bad outcome regression model, good propensity score model (Scenario 2)
-# gb - good outcome regression model, bad propensity score model (Scenario 3)
+# GENERATE ATES
+gen_ates <- function(n){
+  gg <- c()
+  bg <- c()
+  gb <- c()
+  for(i in 1:1000){
+    data = gen_data(n)
+    gg <- append(gg, gg_ate(data))
+    bg <- append(bg, bg_ate(data))
+    gb <- append(gb, gb_ate(data))
+  }
+  gg_avg = mean(gg)
+  bg_avg = mean(bg)
+  gb_avg = mean(gb)
+  return(c(gg_avg, bg_avg, gb_avg))
+}
+```
+
+```{r}
+gen_ates(100)
+```
+
+```{r}
+gen_ates(500)
+```
+
+```{r}
+gen_ates(1000)
+```
+
+```{r}
+gen_ates(2000)
+```
+
+```{r}
+gen_ates(10000)
 ```
 
