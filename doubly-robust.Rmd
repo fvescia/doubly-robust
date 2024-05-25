@@ -21,7 +21,7 @@ You can think of doubly robust estimation as statistics’ version of the [[Swis
 
 First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, to avoid confusion given you’ll often see $X$ used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
 
-$\bf{Z}$ are characteristics (that is, covariates) of individuals in our data
+$Z$ are characteristics (that is, covariates) of individuals in our data
 
 $D$ is a binary treatment indicator equal to $1$ if an individual is exposed to treatment or $0$ if they aren’t
 
@@ -31,11 +31,11 @@ $\hat{Y_1}$ and $\hat{Y_0}$ are *predicted* outcomes under treatment and control
 
 [^1]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly
 
-$m1(\bf{Z_i}$$, \hat{\alpha}_1)$ and $m0(\bf{Z_i}$$, \hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $\bf{Z_i}$ are that individual's characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics
+$m1(Z_i,\hat{\alpha}_1)$ and $m0(Z_i,\hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $Z_i$ are that individual's characteristics and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics
 
-$PS=P[D=1|\bf{Z}]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics
+$PS=P[D=1|Z]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics
 
-$e(\bf{Z_i}$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $\bf{Z_i}$ are once again an individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
+$e(Z_i$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $Z_i$ are once again an individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
 
 $DR_1$ and $DR_0$ are the doubly robust estimated outcomes under treatment and control
 
@@ -43,7 +43,7 @@ Also, a few assumptions. Briefly, **positivity** or overlap assumes every indivi
 
 ## A simple doubly robust estimator
 
-Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [Web Appendix 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics ($\bf{Z}$ [^2]), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
+Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [Web Appendix 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics[^2] ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
 
 [^2]: The $Z_2$ / `z2` characteristic is only used for data generation, so you won't see it anywhere in this document.
 
@@ -89,7 +89,7 @@ data <- tibble(z1, z2, z3, d, ps, y)
 
 Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model - that way we can see double robustness at work. (For anyone following along in Funk et al., this is their Scenario 3.)
 
-Let's start with our outcomes: we model the relationships between characteristics ($\bf{Z}$) and outcomes ($Y$) in each exposure group, then use those models to predict outcomes ($\hat{Y}$) for everyone. This means each individual has one *observed* outcome, for the condition they are assigned to, and two *predicted* outcomes, one each for treatment and control.
+Let's start with our outcomes: we model the relationships between characteristics ($Z$) and outcomes ($Y$) in each exposure group, then use those models to predict outcomes ($\hat{Y}$) for everyone. This means each individual has one *observed* outcome, for the condition they are assigned to, and two *predicted* outcomes, one each for treatment and control.
 
 ```{r}
 # Fit outcome regression models within exposure groups
@@ -157,15 +157,14 @@ Here's another look at that left-hand side term. When $n$ is large, this sample 
 
 $$
 \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z_i,\hat{\beta}))}{e(Z_i,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)]
-$$
-$$
+$$ $$
 \approx E[Y_{D=1}] + E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
-$$
-The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our target quantity. Let's see how the second term behaves in our scenario. Since we have the right outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$:
-$$
+$$ The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our target quantity. Let's see how the second term behaves in our scenario. Since we have the right outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$: $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
 $$
 
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])]
+$$ Now let's rearrange: $$
+E([\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])]|X,Z)
 $$
