@@ -1,5 +1,6 @@
 
 ```{r}
+set.seed(40601)
 library(tidyverse)
 ```
 
@@ -10,7 +11,8 @@ gen_data <- function(n){
   # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
 z2 <- rnorm(n, mean = 0, sd = 1)
-z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0))
+z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0)) 
+# equivalently, rbinom(n, size = 1, prob = 0.3)
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
 # Set betas for true model
@@ -50,10 +52,10 @@ gg_ate <- function(data){
   data <- data %>% mutate(yhat0 = predict(mod_c, data))
   
   # Fit correct propensity score model
-  ps_mod <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+  ps_mod <- glm(d ~ z1 + z2 + z3, data = data, family = 'binomial')
   
   # Predict propensity scores
-  data <- data %>% mutate(ps_hat = predict(ps_mod, data))
+  data <- data %>% mutate(ps_hat = predict(ps_mod, data, type = 'response'))
   
   # Compute doubly robust estimates
   data <- data %>% mutate(dr1 = 
@@ -71,7 +73,7 @@ gg_ate <- function(data){
 ```
 
 ```{r}
-# SCENARIO
+# SCENARIO 2
 # Bad outcome regression model, good propensity score model: bg
 
 bg_ate <- function(data){
@@ -84,10 +86,10 @@ bg_ate <- function(data){
   data <- data %>% mutate(yhat0 = predict(mod_c, data))
   
   # Fit correct propensity score model
-  ps_mod <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+  ps_mod <- glm(d ~ z1 + z2 + z3, data = data, family = 'binomial')
   
   # Predict propensity scores
-  data <- data %>% mutate(ps_hat = predict(ps_mod, data))
+  data <- data %>% mutate(ps_hat = predict(ps_mod, data, type = 'response'))
   
   # Compute doubly robust estimates
   data <- data %>% mutate(dr1 = 
@@ -118,10 +120,10 @@ gb_ate <- function(data){
   data <- data %>% mutate(yhat0 = predict(mod_c, data))
   
   # Misspecify propensity score model (omit z3)
-  ps_mod <- glm(d ~ z1, data = data, family = 'binomial')
+  ps_mod <- glm(d ~ z1 + z2, data = data, family = 'binomial')
   
   # Predict propensity scores
-  data <- data %>% mutate(ps_hat = predict(ps_mod, data))
+  data <- data %>% mutate(ps_hat = predict(ps_mod, data, type = 'response'))
   
   # Compute doubly robust estimates
   data <- data %>% mutate(dr1 = 
@@ -142,18 +144,19 @@ gb_ate <- function(data){
 ```{r}
 # GENERATE ATES
 gen_ates <- function(n){
-  gg <- c()
-  bg <- c()
-  gb <- c()
+  gg <- rep(NA, length(n))
+  bg <- rep(NA, length(n))
+  gb <- rep(NA, length(n))
   for(i in 1:1000){
-    data = gen_data(n)
-    gg <- append(gg, gg_ate(data))
-    bg <- append(bg, bg_ate(data))
-    gb <- append(gb, gb_ate(data))
+    data <- gen_data(n)
+    gg[i] <- gg_ate(data)
+    bg[i] <- bg_ate(data)
+    gb[i] <- gb_ate(data)
+    
   }
-  gg_avg = mean(gg)
-  bg_avg = mean(bg)
-  gb_avg = mean(gb)
+  gg_avg <- mean(gg)
+  bg_avg <- mean(bg)
+  gb_avg <- mean(gb)
   return(c(gg_avg, bg_avg, gb_avg))
 }
 ```
