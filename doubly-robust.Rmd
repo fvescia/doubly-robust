@@ -156,8 +156,16 @@ The first term in each average is the inverse-propensity-weighted (IPW) estimato
 Here's another look at that left-hand side term. When $n$ is large, this sample average (top) estimates the population average (bottom):
 
 $$
-\frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)]
+\frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z_i,\hat{\beta}))}{e(Z_i,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)]
 $$
 $$
 \approx E[Y_{D=1}] + E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
+$$
+The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our target quantity. Let's see how the second term behaves in our scenario. Since we have the right outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$:
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
+$$
+
+$$
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])]
 $$
