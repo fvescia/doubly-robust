@@ -1,0 +1,50 @@
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# GENERATE "TRUE" DATE PER FUNK ET AL. 2011
+gen_data <- function(n){
+  
+  # GENERATE IVs
+z1 <- rnorm(n, mean = 0, sd = 1)
+z2 <- rnorm(n, mean = 0, sd = 1)
+z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0))
+
+# GENERATE EXPOSURE AS A FUNCTION OF IVs
+
+# Set betas for true model
+b0_0 = 1.5
+b1_0 = 1
+b2_0 = -2
+b3_0 = 1
+
+# Calculate true propensity scores (logit)
+ps <- (1 + exp(-1 * (b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)))^(-1)
+
+# Calculate exposure
+d <- ifelse((ps + runif(n, min = 0, max = 1)) < 0.91, 1, 0)
+
+# GENERATE TRUE OUTCOMES
+b4_0 <- 2
+z4 <- rnorm(n, mean = 0, sd = 1)
+y <- b1_0*z1 + b3_0*z3 + b4_0*z4
+
+# TRUE DATA
+data <- tibble(z1, z2, z3, d, ps, y)
+return(data)
+}
+```
+
+```{r}
+data <- gen_data(2000)
+```
+
+
+```{r}
+# gg - both models correctly specified (Scenario 1)
+# bg - bad outcome regression model, good propensity score model (Scenario 2)
+# gb - good outcome regression model, bad propensity score model (Scenario 3)
+```
+
