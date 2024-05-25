@@ -5,7 +5,7 @@ date: Spring 2024
 output: pdf_document
 ---
 
-Welcome! This is a conversational introduction to doubly robust estimation. Largely following [[Funk et al. 2011]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/), we’ll talk about what doubly robust estimation is and why we do it; break down a simple doubly robust estimator to understand how it works; and run some simulations to see our estimator in action.
+Welcome! This is a conversational introduction to doubly robust estimation. Largely following [[Funk et al. 2011]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/), we’ll talk about what doubly robust estimation is and why we do it; break down a simple doubly robust estimator to understand how it works; and run some simulations to see the estimator in action.
 
 ## What and why
 
@@ -13,13 +13,13 @@ I like to think of “causal inference” as a catch-all term for the tools we h
 
 But fitting models to data almost always involves making some assumptions about how the world works. For example, when we fit a linear regression model, we assume the relationship we are quantifying is linear. And when we misspecify our models – that is, when our assumptions about the world are wrong – the estimates our models produce are poor.
 
-Doubly robust estimation is one way to help insure our estimates against bad assumptions. It combines two modeling strategies, outcome regression modeling and propensity score estimation, in such a way that as long as one of the two models is correct, our estimates will be unbiased – even if the other model is misspecified.
+Doubly robust estimation is one way to help insure our estimates against bad assumptions. It combines two modeling strategies, outcome regression modeling and propensity score estimation, in such a way that as long as one of the two models is correct, our estimates will be unbiased, even if the other model is misspecified.
 
 You can think of doubly robust estimation as statistics’ version of the [[Swiss cheese model]{.underline}](https://www.nytimes.com/2020/12/05/health/coronavirus-swiss-cheese-infection-mackay.html). Each modeling strategy – propensity score estimation and outcome regression modeling – is a layer of defense against bias. Neither is perfect, but by layering the strategies on top of each other, we give ourselves more opportunities to block bias from degrading our estimates.
 
 ## Some housekeeping
 
-First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, to avoid confusion given you’ll often see $X$ used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
+First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, to avoid confusion given $X$ is often used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
 
 $Z$ are characteristics (that is, covariates) of individuals in our data
 
@@ -37,13 +37,13 @@ $PS=P[D=1|Z]$ is the propensity score, which measures how likely an individual i
 
 $e(Z_i$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $Z_i$ are once again an individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
 
-$DR_1$ and $DR_0$ are the doubly robust estimated outcomes under treatment and control
+$DR_1$ and $DR_0$ are the doubly robust estimated outcomes under treatment and control, respectively
 
-Also, a few assumptions. Briefly, **positivity** or overlap assumes every individual in the data had some chance of receiving treatment: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency** or the stable unit treatment assumption (SUTVA) assumes every individual has a single, stable potential outcome for each possible treatment: formally, Yi(d) = Yi if Di = d. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary. Finally, **exchangeability**, the assumption that the outcome distributions would be the same if the treatment assignments had been flipped, implies treatment assignment is independent of potential outcomes.
+Also, a few assumptions. Briefly, **exchangeability** assumes we would see the same outcome distributions if the treatment assignments had been flipped. **Positivity** or overlap assumes every individual in the data had some chance of being treated: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency** or the stable unit treatment assumption (SUTVA) assumes every individual has a single, stable potential outcome for each possible treatment: formally, $Y = Y_{D=1}$ if $D=1$. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary.
 
 ## A simple doubly robust estimator
 
-Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [Web Appendix 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics[^2] ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
+Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [[Web Appendix 3]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics[^2] ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
 
 [^2]: The $Z_2$ / `z2` characteristic is only used for data generation, so you won't see it anywhere in this document.
 
@@ -53,7 +53,7 @@ library(tidyverse)
 
 ```{r, echo=FALSE, message=FALSE}
 # GENERATE "TRUE" DATE PER FUNK ET AL. 2011
-n = 2000
+n = 2000000
 
 # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
@@ -61,15 +61,14 @@ z2 <- rnorm(n, mean = 0, sd = 1)
 z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0))
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
-
 # Set betas for true model
-b0_0 = 1.5
-b1_0 = 1
-b2_0 = -2
-b3_0 = 1
+b0 = 1.5
+b1 = 1
+b2 = -2
+b3 = 1
 
 # Calculate true propensity scores (logit)
-ps <- (1 + exp(-1 * (b0_0 + b1_0*z1 + b2_0*z2 + b3_0*z3)))^(-1)
+ps <- (1 + exp(-1 * (b0 + b1*z1 + b2*z2 + b3*z3)))^(-1)
 
 # Calculate exposure
 d <- ifelse((ps + runif(n, min = 0, max = 1)) < 0.91, 1, 0)
@@ -77,22 +76,23 @@ d <- ifelse((ps + runif(n, min = 0, max = 1)) < 0.91, 1, 0)
 # GENERATE TRUE OUTCOMES
 b4_0 <- 2
 z4 <- rnorm(n, mean = 0, sd = 1)
-y <- b1_0*z1 + b3_0*z3 + b4_0*z4
+y <- b1*z1 + b3*z3 + b4_0*z4
 
 # TRUE DATA
 data <- tibble(z1, z2, z3, d, ps, y)
-
-(mean(data$d)) # Expect P(D=1) = 0.2
-(mean(data$y)) # Expect mean = 0.2
-(sd(data$y)) # Expect sd = 2.3
+# mean(data$d) # Expect P(D=1) = 0.2
+# mean(data$y) # Expect mean = 0.2
+# sd(data$y) # Expect sd = 2.3
 ```
 
-Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model - that way we can see double robustness at work. (For anyone following along in Funk et al., this is their Scenario 3.)
+Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model [^3], so we can see double robustness at work.
+
+[^3]: For anyone following along in Funk et al., this is their Scenario 3.
 
 Let's start with our outcomes: we model the relationships between characteristics ($Z$) and outcomes ($Y$) in each exposure group, then use those models to predict outcomes ($\hat{Y}$) for everyone. This means each individual has one *observed* outcome, for the condition they are assigned to, and two *predicted* outcomes, one each for treatment and control.
 
 ```{r}
-# Fit outcome regression models within exposure groups
+# Fit correct outcome regression models within exposure groups
 mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
 mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
 
@@ -101,11 +101,11 @@ data <- data %>% mutate(yhat1 = predict(mod_t, data))
 data <- data %>% mutate(yhat0 = predict(mod_c, data))
 ```
 
-Now let's fit our propensity score model, purposefully leaving out $Z_3$, and the resulting, *misspecified* model to predict propensity scores:
+Now let's fit our propensity score model, purposefully leaving out $Z_3$, and use the resulting, *misspecified* model to predict propensity scores:
 
 ```{r}
-# Fit propensity score logit model
-ps_mod <- glm(d ~ z1 + z3, data = data, family = 'binomial')
+# Fit incorrect propensity score logit model (omit z3)
+ps_mod <- glm(d ~ z1, data = data, family = 'binomial')
 
 # Predict propensity scores
 data <- data %>% mutate(ps_hat = predict(ps_mod, data))
@@ -141,57 +141,77 @@ Finally, we take the averages of $DR_1$ and $DR_0$ across our entire sample and 
 (mean(data$dr1) - mean(data$dr0))
 ```
 
-Let's think through what exactly is going on in the doubly robust estimator. You'll notice that that our doubly robust estimates of $DR_1$ for individuals in the control group and $DR_0$ for individuals in the treatment group are just $\hat{Y_1}$ and $\hat{Y_0}$, the predictions from our regression models. But our "within-condition" doubly robust estimates - that is, our $DR_1s$ for individuals in the treatment group and our $DR_0s$ for individuals in the control group - are a little fancier. We observe individuals' true outcomes under their assigned conditions, and we use that information together with our propensity score estimates to adjust our predictions.
+It's small, close to the true value of zero even though we misspecified our propensity score model. Let's think through what exactly is going on in this estimator. You'll notice that that our doubly robust estimates of $DR_1$ for individuals in the control group and $DR_0$ for individuals in the treatment group are just $\hat{Y_1}$ and $\hat{Y_0}$, the predictions from our regression models. But our "within-condition" doubly robust estimates - that is, our $DR_1s$ for individuals in the treatment group and our $DR_0s$ for individuals in the control group - are a little fancier. We observe individuals' true outcomes under their assigned conditions, and we can use that information together with our propensity score estimates to adjust our predictions.
 
-Some rearranging can help us see how these adjustments block bias[^3]. The ordering and notation are a little different, but this equation ultimately does exactly the same math as the equations in the table above:
+Some rearranging helps demonstrate how these adjustments block bias [^4]. The ordering and notation are a little different, but this equation ultimately does exactly the same math as the equations in the table above:
 
-[^3]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
+[^4]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
 
 $$
 \hat{\Delta}_{DR} = \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)] - \frac{1}{n}\sum_{i=1}^n[\frac{(1-D_i)Y_i}{1-e(Z_i,\hat{\beta})}+\frac{(D_i-e(Z_i,\hat{\beta}))}{1-e(Z,\hat{\beta})}m_0(Z_i,\hat{\alpha}_0)]
 $$
 
-The first term in each average is the inverse-propensity-weighted (IPW) estimator for the expected outcome under the a given condition (treatment on the left-hand side and control on the right). The second "augmentation" term serves two purposes: it increases efficiency, which is beyond the scope of this tutorial, and also gives us double robustness. To see how it does the latter, lets revisit our scenario from before - a correctly specified outcome regression model and a misspecified propensity score model - and consider the estimated outcome under treatment (the left-hand side average in the equation above; similar logic holds for the estimated outcome under control, the right-hand side average in the equation above).
+The first term in each average is the inverse-propensity-weighted (IPW) estimator for the expected outcome under the a given condition (treatment on the left-hand side and control on the right). The second "augmentation" term serves two purposes: it increases efficiency, which is beyond the scope of this tutorial, and also gives us double robustness. To see how it does the latter, let's return to our scenario from before - a correctly specified outcome regression model and a misspecified propensity score model - and consider the estimated outcome under treatment (the left-hand side average in the equation above; similar logic holds for the estimated outcome under control, the right-hand side average in the equation above).
 
-Here's another look at that left-hand side term. When $n$ is large, this sample average (top) estimates the population average (bottom):
+\newpage
+
+Here's another look at that left-hand side term. When $n$ is large, this sample average (top) estimates the population average (bottom), thanks to the law of large numbers:
 
 $$
 \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z_i,\hat{\beta}))}{e(Z_i,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)]
-$$
-
+$$\
+\
 $$
 \approx E[Y_{D=1}] + E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
-$$ 
+$$
 
-The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our target quantity. Let's see how the second term behaves in our scenario. Since we have the right outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$:
+The first term, $E[Y_{D=1}]$, is the quantity we're interested in, the expected outcome under treatment. If the second term reduces to zero, the equation reduces to our quantity of interest. Let's see how the second term behaves in our scenario. Since we have the correct outcome regression model, we can replace the model $m_1(Z,\alpha_1)$ with the quantity it estimates, $E[Y|D=1,Z]$:
 
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-m_1(Z,\alpha_1))]
-$$
-
+$$\
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])]
 $$
 
-Let's rearrange: 
+Now let's rearrange:
+
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])|X,Z]
-$$
-
+$$\
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}-E[Y|D=1,Z]])|D,Z]
-$$
-
+$$\
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}|D,Z]-E[Y|D=1,Z])]
-$$
+$$\
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}|Z]-E[Y_{D=1}|Z])]
-
-$$
+$$\
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(0)] = E[0] = 0
-
 $$
-$E[Y_{D=1}|Z]-E[Y_{D=1}|Z]$, which comes from our correctly specified outcome regression model, reduces to zero, taking any bias our misspecified propensity score model would have otherwise introduced with it.
+\
+$E[Y_{D=1}|Z]-E[Y_{D=1}|Z]$, which comes from our correctly specified outcome regression model, reduces to zero, taking any bias our misspecified propensity score model, $e(Z,\beta)$, would have otherwise introduced out of the equation.
 
+So, that's what's going on under the hood. To see it in action, I simulated 1,000 samples each of 100, 500, 1,000, 2,000, and 10,000 observations and estimated average treatment effects for each sample under three scenarios, the good outcome regression/bad propensity score model scenario we have explored together (Funk et al.'s Scenario 3), its inverse (bad outcome regression/good propensity score model, Scenario 2), and the best-case good outcome regression/good propensity score model scenario (Scenario 1). The simulation results are below, and the code is on [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust/blob/main/sims.Rmd). For standard error and confidence interval estimates under these same three scenarios, see Funk et al.
+
+There is no true treatment effect by design, so the average ATEs from the doubly robust estimator should be close to zero in all scenarios. These averages are larger than I was expecting based on theory - and the results from Funk et al.'s simulations with the same, relatively small sample sizes - and I am surprised a relatively large portion of them are negative, since an unbiased estimator should not systematically bias estimates in a particular direction. Thoughts and feedback on these somewhat unexpected results are welcome to [[fvescia\@uchicago.edu]{.underline}](mailto:fvescia@uchicago.edu)
+
+|            | Sample Size | Average ATE Estimate |
+|------------|-------------|----------------------|
+| Scenario 1 | 100         | -0.1314              |
+|            | 500         | -1.2578              |
+|            | 1,000       | -1.0912              |
+|            | 2,000       | 0.0189               |
+|            | 10,000      | -0.0190              |
+| Scenario 2 | 100         | -0.1161              |
+|            | 500         | -1.1239              |
+|            | 1,000       | -1.3463              |
+|            | 2,000       | -0.0645              |
+|            | 10,000      | -0.0812              |
+| Scenario 3 | 100         | 0.2050               |
+|            | 500         | 0.6942               |
+|            | 1,000       | -0.0344              |
+|            | 2,000       | -0.1411              |
+|            | 10,000      | -0.1106              |
