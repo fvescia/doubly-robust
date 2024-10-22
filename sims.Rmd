@@ -11,8 +11,7 @@ gen_data <- function(n){
   # GENERATE IVs
 z1 <- rnorm(n, mean = 0, sd = 1)
 z2 <- rnorm(n, mean = 0, sd = 1)
-z3 <- replicate(n, ifelse((runif(1, min = 0, max = 1) <= 0.3), 1, 0)) 
-# equivalently, rbinom(n, size = 1, prob = 0.3)
+z3 <- rbinom(n, size = 1, prob = 0.3)
 
 # GENERATE EXPOSURE AS A FUNCTION OF IVs
 # Set betas for true model
