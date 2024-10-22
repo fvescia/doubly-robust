@@ -28,9 +28,9 @@ $D$ is a binary treatment indicator equal to $1$ if an individual is exposed to 
 
 $Y_{D=1}$ and $Y_{D=0}$ are *observed* outcomes for individuals in the treatment and control groups, respectively
 
-$\hat{Y_1}$ and $\hat{Y_0}$ are *predicted* outcomes under treatment and control, respectively [^1]
+$\hat{Y_1}$ and $\hat{Y_0}$ are *predicted* outcomes under treatment and control, respectively [^hat]
 
-[^1]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly
+[^hat]: Per usual, any term with a "hat" is an estimate of a true quantity we can't measure directly
 
 $m1(Z_i,\hat{\alpha}_1)$ and $m0(Z_i,\hat{\alpha}_0)$ are the models we’ll use to predict $\hat{Y}_{D=1}$ and $\hat{Y}_{D=0}$ for each individual, where $i$ indexes individuals, $Z_i$ are individual $i$'s characteristics, and $\hat{\alpha}_1$ and $\hat{\alpha}_0$ are coefficients that describe the estimated relationships between characteristics and outcomes in the treatment and control groups; we get $\hat{\alpha}_1$ and $\hat{\alpha}_0$ by fitting linear regression models that predict outcomes using characteristics. 
 
@@ -44,16 +44,17 @@ Also, a few assumptions. Briefly, **exchangeability** assumes we would see the s
 
 ## A simple doubly robust estimator
 
-Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see Funk et al. [[Web Appendix 3]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html) for the exact details of the data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics[^2] ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
+Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see [[Methods]{.underline}](https://pmc.ncbi.nlm.nih.gov/articles/PMC3070495/) in Funk et al. for a more detailed description of data-generating process [^err] and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
 
-[^2]: The $Z_2$ / `z2` characteristic is only used for data generation, so you won't see it anywhere in this document.
+[^err] Web Appendix 3, linked in the publication, doesn't quite match the DGP described in the main text, so stick with Methods to avoid confusion.
 
 ```{r, echo=FALSE, message=FALSE}
+set.seed(40601)
 library(tidyverse)
 ```
 
 ```{r, echo=FALSE, message=FALSE}
-# GENERATE "TRUE" DATE PER FUNK ET AL. 2011
+# GENERATE "TRUE" DATA PER FUNK ET AL. 2011
 n = 2000000
 
 # GENERATE IVs
@@ -86,9 +87,9 @@ data <- tibble(z1, z2, z3, d, ps, y)
 # sd(data$y) # Expect sd = 2.3
 ```
 
-Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model [^3], so we can see double robustness at work.
+Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model [^scen3], so we can see double robustness at work.
 
-[^3]: For anyone following along in Funk et al., this is their Scenario 3.
+[^scen3]: For anyone following along in Funk et al., this is their Scenario 3.
 
 Let's start with our outcomes: we model the relationships between characteristics ($Z$) and outcomes ($Y$) in each exposure group, then use those models to predict outcomes ($\hat{Y}$) for everyone. This means each individual has one *observed* outcome, for the condition they are assigned to, and two *predicted* outcomes, one each for treatment and control.
 
@@ -106,7 +107,7 @@ Now let's fit our propensity score model, purposefully leaving out $Z_3$, and us
 
 ```{r}
 # Fit incorrect propensity score logit model (omit z3)
-ps_mod <- glm(d ~ z1, data = data, family = 'binomial')
+ps_mod <- glm(d ~ z1 + z2, data = data, family = 'binomial')
 
 # Predict propensity scores
 data <- data %>% mutate(ps_hat = predict(ps_mod, data))
@@ -123,6 +124,7 @@ For $D=0$ & $\hat{Y_1}$ & $\frac{Y_{D=0}}{1-PS}-\frac{\hat{Y_0}\left(PS\right)}{
 \end{tabular}
 \end{table}
 ```
+
 ```{r}
 # Compute doubly robust estimates
 data <- data %>% mutate(dr1 = 
@@ -144,17 +146,15 @@ Finally, we take the averages of $DR_1$ and $DR_0$ across our entire sample and 
 
 It's small, close to the true value of zero even though we misspecified our propensity score model. Let's think through what exactly is going on in this estimator. You'll notice that that our doubly robust estimates of $DR_1$ for individuals in the control group and $DR_0$ for individuals in the treatment group are just $\hat{Y_1}$ and $\hat{Y_0}$, the predictions from our regression models. But our "within-condition" doubly robust estimates - that is, our $DR_1s$ for individuals in the treatment group and our $DR_0s$ for individuals in the control group - are a little fancier. We observe individuals' true outcomes under their assigned conditions, and we can use that information together with our propensity score estimates to adjust our predictions.
 
-Some rearranging helps demonstrate how these adjustments block bias [^4]. The ordering and notation are a little different, but this equation ultimately does exactly the same math as the equations in the table above:
+Some rearranging helps demonstrate how these adjustments block bias [^proof]. The ordering and notation are a little different, but this equation ultimately does exactly the same math as the equations in the table above:
 
-[^4]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
+[^proof]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
 
 $$
 \hat{\Delta}_{DR} = \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)] - \frac{1}{n}\sum_{i=1}^n[\frac{(1-D_i)Y_i}{1-e(Z_i,\hat{\beta})}+\frac{(D_i-e(Z_i,\hat{\beta}))}{1-e(Z,\hat{\beta})}m_0(Z_i,\hat{\alpha}_0)]
 $$
 
 The first term in each average is the inverse-propensity-weighted (IPW) estimator for the expected outcome under the a given condition (treatment on the left-hand side and control on the right). The second "augmentation" term serves two purposes: it increases efficiency, which is beyond the scope of this tutorial, and also gives us double robustness. To see how it does the latter, let's return to our scenario from before - a correctly specified outcome regression model and a misspecified propensity score model - and consider the estimated outcome under treatment (the left-hand side average in the equation above; similar logic holds for the estimated outcome under control, the right-hand side average in the equation above).
-
-\newpage
 
 Here's another look at that left-hand side term. When $n$ is large, this sample average (top) estimates the population average (bottom), thanks to the law of large numbers:
 
@@ -195,24 +195,22 @@ $$
 \
 $E[Y_{D=1}|Z]-E[Y_{D=1}|Z]$, which comes from our correctly specified outcome regression model, reduces to zero, taking any bias our misspecified propensity score model, $e(Z,\beta)$, would have otherwise introduced out of the equation.
 
-So, that's what's going on under the hood. To see it in action, I simulated 1,000 samples each of 100, 500, 1,000, 2,000, and 10,000 observations and estimated average treatment effects for each sample under three scenarios, the good outcome regression/bad propensity score model scenario we have explored together (Funk et al.'s Scenario 3), its inverse (bad outcome regression/good propensity score model, Scenario 2), and the best-case good outcome regression/good propensity score model scenario (Scenario 1). The simulation results are below, and the code is on [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust/blob/main/sims.Rmd). For standard error and confidence interval estimates under these same three scenarios, see Funk et al.
-
-There is no true treatment effect by design, so the average ATEs from the doubly robust estimator should be close to zero in all scenarios. These averages are larger than I was expecting based on theory - and the results from Funk et al.'s simulations with the same, relatively small sample sizes - and I am surprised a relatively large portion of them are negative, since an unbiased estimator should not systematically bias estimates in a particular direction. Thoughts and feedback on these somewhat unexpected results are welcome to [[fvescia\@uchicago.edu]{.underline}](mailto:fvescia@uchicago.edu)
+So, that's what's going on under the hood. To see it in action, I simulated 1,000 samples each of 100, 500, 1,000, 2,000, and 10,000 observations and estimated average treatment effects for each sample under three scenarios, the good outcome regression/bad propensity score model scenario we have explored together (Funk et al.'s Scenario 3), its inverse (bad outcome regression/good propensity score model, Scenario 2), and the best-case good outcome regression/good propensity score model scenario (Scenario 1). The simulation results are below, and the code is on [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust/blob/main/sims.Rmd). here is no true treatment effect by design, so the average ATEs from the doubly robust estimator are zero in all scenarios. For standard error and confidence interval estimates under these same three scenarios, see Funk et al.
 
 |            | Sample Size | Average ATE Estimate |
 |------------|-------------|----------------------|
-| Scenario 1 | 100         | -0.1314              |
-|            | 500         | -1.2578              |
-|            | 1,000       | -1.0912              |
-|            | 2,000       | 0.0189               |
-|            | 10,000      | -0.0190              |
-| Scenario 2 | 100         | -0.1161              |
-|            | 500         | -1.1239              |
-|            | 1,000       | -1.3463              |
-|            | 2,000       | -0.0645              |
-|            | 10,000      | -0.0812              |
-| Scenario 3 | 100         | 0.2050               |
-|            | 500         | 0.6942               |
-|            | 1,000       | -0.0344              |
-|            | 2,000       | -0.1411              |
-|            | 10,000      | -0.1106              |
+| Scenario 1 | 100         |-0.0028               |
+|            | 500         |0.0013                |
+|            | 1,000       |-0.0583               |
+|            | 2,000       |-0.0008               |
+|            | 10,000      |0.0053                |
+| Scenario 2 | 100         |-0.0706               |
+|            | 500         |-0.0558               |
+|            | 1,000       |-0.1003               |
+|            | 2,000       |-0.0512               |
+|            | 10,000      |-0.0453               |
+| Scenario 3 | 100         |-0.0141               |
+|            | 500         |-0.0090               |
+|            | 1,000       |-0.0380               |
+|            | 2,000       |-0.0037               |
+|            | 10,000      |0.0150                |
