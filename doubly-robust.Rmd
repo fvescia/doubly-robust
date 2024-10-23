@@ -14,7 +14,7 @@ But fitting models to data almost always involves making some assumptions about 
 
 Doubly robust estimation is one way to help insure our estimates against bad assumptions. It combines two modeling strategies, outcome regression modeling and propensity score estimation, in such a way that as long as one of the two models is correct, our estimates will be unbiased, even if the other model is misspecified. 
 
-This tutorial explores a doubly robust estimator that works if we can effectively approximate the true outcomes and/or propensity scores with linear models. We can relax our assumptions about the complexity of the underlying functionals [^func] by incorporating cross-fitting, as described in [[Chernozhukov et al. 2018]{.underline}](https://arxiv.org/abs/1608.00060). Cross-fitting allows us to use machine learning methods to fit the outcome and propensity score models, which can be particularly useful if the true relationship between the covariates and the outcome or treatment assignment is complex. 
+This tutorial explores a doubly robust estimator that works if we can effectively approximate the true outcomes and/or propensity scores with linear models. We can relax our assumptions about the complexity of the underlying functionals [^func] by using cross-fitting, as described in [[Chernozhukov et al. 2018]{.underline}](https://arxiv.org/abs/1608.00060). Cross-fitting allows us to fit the outcome and propensity score models with machine learning methods, which can be particularly useful if the true relationship between the covariates and the outcome or treatment assignment is complex. 
 
 [^func]: Functionals are the parameters we estimate with our models: a target parameter, like a treatment effect, that we want to do inference on, and "nuisance" parameters that we include to better model the data distribution but aren't trying to interpret
 
@@ -22,7 +22,7 @@ You can think of doubly robust estimation as statistics’ version of the [[Swis
 
 ## Some housekeeping
 
-First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, to avoid confusion given $X$ is often used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
+First things first, notation. I follow Funk et al., except that I use $D$ instead of $X$ to denote treatment, since $X$ is often used elsewhere to denote covariates. Here is a full list of the terms we’re going to use:
 
 $Z$ are characteristics (that is, covariates) of individuals in our data
 
@@ -38,11 +38,11 @@ $m1(Z_i,\hat{\alpha}_1)$ and $m0(Z_i,\hat{\alpha}_0)$ are the models we’ll use
 
 $PS=P[D=1|Z]$ is the propensity score, which measures how likely an individual is to be exposed to treatment based on their characteristics. 
 
-$e(Z_i$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $Z_i$ are once again an individual's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
+$e(Z_i$$, \hat{\beta})$ is the model we'll use to estimate the propensity score, where $Z_i$ are individual i's characteristics and $\hat{\beta}$ is a coefficient that describes the estimated relationship between characteristics and treatment propensity; we get $\hat{\beta}$ by fitting a logistic regression model that predicts treatment using characteristics
 
 $DR_1$ and $DR_0$ are the doubly robust estimated outcomes under treatment and control, respectively
 
-Also, a few assumptions. Briefly, **exchangeability** assumes we would see the same outcome distributions if the treatment assignments had been flipped. **Positivity** or overlap assumes every individual in the data had some chance of being treated: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency** or the stable unit treatment assumption (SUTVA) assumes every individual has a single, stable potential outcome for each possible treatment: formally, $Y = Y_{D=1}$ if $D=1$. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary.
+Also, a few assumptions. Briefly, **exchangeability** assumes we would see the same outcome distributions if the treatment assignments had been flipped. It implies that no uncontrolled-for characteristic differences between the treatment and control groups are confounding the outcomes. **Positivity** or overlap assumes every individual in the data had some chance of being treated: formally, $0\leq P[D_i=1]\leq1$. It ensures we have individuals in the treatment and control groups to contrast. **Consistency**, or the stable unit treatment assumption (SUTVA), assumes every individual has a single, stable potential outcome for each possible treatment: formally, $Y = Y_{D=1}$ if $D=1$. SUTVA has several implications; see Anton Strezhnev’s [[introduction to the potential outcomes framework]{.underline}](https://github.com/UChicago-pol-methods/plsc-30600-causal-inference/blob/main/slides/week1/Week%201_%20Potential%20Outcomes.pdf) for an excellent summary.
 
 ## A simple doubly robust estimator
 
