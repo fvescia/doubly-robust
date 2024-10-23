@@ -114,7 +114,7 @@ ps_mod <- glm(d ~ z1 + z2, data = data, family = 'binomial')
 data <- data %>% mutate(ps_hat = predict(ps_mod, data))
 ```
 
-And now, the fun part! We take our estimated outcomes and propensity scores and combine them to calculate doubly robust outcome estimates as shown in the table below. Just like when we calculated our regression-based $\hat{Y}s$, each person gets two estimates, one each for treatment and control.
+And now, the fun part! We take our estimated outcomes and propensity scores and combine them to calculate doubly robust outcome estimates as shown in the table below. (We'll talk about *why* we combine them like this momentarily.) Just like when we calculated our regression-based $\hat{Y}s$, each person gets two estimates, one each for treatment and control.
 
 ```{=tex}
 \begin{table}[h]
@@ -196,7 +196,7 @@ $$
 \
 $E[Y_{D=1}|Z]-E[Y_{D=1}|Z]$, which comes from our correctly specified outcome regression model, reduces to zero, taking any bias our misspecified propensity score model, $e(Z,\beta)$, would have otherwise introduced out of the equation.
 
-So, that's what's going on under the hood. To see it in action, I simulated 1,000 samples each of 100, 500, 1,000, 2,000, and 10,000 observations and estimated average treatment effects for each sample under three scenarios, the good outcome regression/bad propensity score model scenario we have explored together (Funk et al.'s Scenario 3), its inverse (bad outcome regression/good propensity score model, Scenario 2), and the best-case good outcome regression/good propensity score model scenario (Scenario 1). The simulation results are below, and the code is on [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust/blob/main/sims.Rmd). here is no true treatment effect by design, so the average ATEs from the doubly robust estimator are zero in all scenarios. For standard error and confidence interval estimates under these same three scenarios, see Funk et al.
+So, that's what's going on under the hood. To see it in action, I simulated 1,000 samples each of 100, 500, 1,000, 2,000, and 10,000 observations and estimated average treatment effects for each sample under three scenarios, the good outcome regression/bad propensity score model scenario we have explored together (Funk et al.'s Scenario 3), its inverse (bad outcome regression/good propensity score model, Scenario 2), and the best-case good outcome regression/good propensity score model scenario (Scenario 1). The simulation results are below, and the code is on [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust/blob/main/sims.Rmd). There is no true treatment effect by design, so the average ATEs from the doubly robust estimator are essentially zero for all sample sizes in all scenarios. For standard error and confidence interval estimates in these same three scenarios, see Funk et al.
 
 |            | Sample Size | Average ATE Estimate |
 |------------|-------------|----------------------|
