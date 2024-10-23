@@ -46,9 +46,7 @@ Also, a few assumptions. Briefly, **exchangeability** assumes we would see the s
 
 ## A simple doubly robust estimator
 
-Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see [[Methods]{.underline}](https://pmc.ncbi.nlm.nih.gov/articles/PMC3070495/) in Funk et al. for a more detailed description of data-generating process [^err] and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both a function of individual characteristics ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
-
-[^err] Web Appendix 3, linked in the publication, doesn't quite match the DGP described in the main text, so stick with Methods to avoid confusion.
+Let's break down the doubly robust estimator mathematically and programmatically. We'll use the notation defined above for our proofs, and we'll fit our models on simulated data. If you're curious, see [[Methods]{.underline}](https://pmc.ncbi.nlm.nih.gov/articles/PMC3070495/) in Funk et al. for a more detailed description of data-generating process and [[GitHub]{.underline}](https://github.com/fvescia/doubly-robust) for the code. The main things to know are that treatment ($D$) and outcomes ($Y$) are both functions of individual characteristics ($Z$), but outcomes are *not* a function of treatment, so the true treatment effect is zero.
 
 ```{r, echo=FALSE, message=FALSE}
 set.seed(40601)
@@ -89,7 +87,7 @@ data <- tibble(z1, z2, z3, d, ps, y)
 # sd(data$y) # Expect sd = 2.3
 ```
 
-Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to correctly specify our outcome model and intentionally *misspecify* our propensity score model [^scen3], so we can see double robustness at work.
+Recall that doubly robust estimation combines two modeling strategies, outcome regression modeling and propensity score estimation. We're going to *correctly* specify our outcome model and intentionally *misspecify* our propensity score model, [^scen3] so we can see double robustness at work.
 
 [^scen3]: For anyone following along in Funk et al., this is their Scenario 3.
 
@@ -97,6 +95,7 @@ Let's start with our outcomes: we model the relationships between characteristic
 
 ```{r}
 # Fit correct outcome regression models within exposure groups
+# Per Funk et al. Web Appendix 3, z2 does NOT affect outcomes
 mod_t <- lm(y ~ z1 + z3, data = data %>% filter(d == 1))
 mod_c <- lm(y ~ z1 + z3, data = data %>% filter(d == 0))
 
@@ -146,11 +145,11 @@ Finally, we take the averages of $DR_1$ and $DR_0$ across our entire sample and 
 (mean(data$dr1) - mean(data$dr0))
 ```
 
-It's small, close to the true value of zero even though we misspecified our propensity score model. Let's think through what exactly is going on in this estimator. You'll notice that that our doubly robust estimates of $DR_1$ for individuals in the control group and $DR_0$ for individuals in the treatment group are just $\hat{Y_1}$ and $\hat{Y_0}$, the predictions from our regression models. But our "within-condition" doubly robust estimates - that is, our $DR_1s$ for individuals in the treatment group and our $DR_0s$ for individuals in the control group - are a little fancier. We observe individuals' true outcomes under their assigned conditions, and we can use that information together with our propensity score estimates to adjust our predictions.
+It's small, close to the true value of zero even though we misspecified our propensity score model. Let's think through what exactly is going on in this estimator. You'll notice that that our doubly robust estimates of $DR_1$ for individuals in the control group and $DR_0$ for individuals in the treatment group are just $\hat{Y_1}$ and $\hat{Y_0}$, the predictions from our regression models. But our "within-condition" doubly robust estimates - our $DR_1s$ for individuals in the treatment group and our $DR_0s$ for individuals in the control group - are a little fancier. We observe individuals' true outcomes under their assigned conditions, and we can use that information together with our propensity score estimates to adjust our predictions.
 
 Some rearranging helps demonstrate how these adjustments block bias [^proof]. The ordering and notation are a little different, but this equation ultimately does exactly the same math as the equations in the table above:
 
-[^proof]: The following proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is in turn adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
+[^proof]: This proof is excerpted with minimal adaptation from Funk et al. [[Web Appendix 1]{.underline}](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3070495/bin/supp_173_7_761__index.html), which is adapted from [[Tsiatis 2006]{.underline}](https://link.springer.com/book/10.1007/0-387-37345-4).
 
 $$
 \hat{\Delta}_{DR} = \frac{1}{n}\sum_{i=1}^n[\frac{D_iY_i}{e(Z_i,\hat{\beta})} - \frac{(D_i-e(Z,\hat{\beta}))}{e(Z,\hat{\beta})} m_1(Z_i,\hat{\alpha}_1)] - \frac{1}{n}\sum_{i=1}^n[\frac{(1-D_i)Y_i}{1-e(Z_i,\hat{\beta})}+\frac{(D_i-e(Z_i,\hat{\beta}))}{1-e(Z,\hat{\beta})}m_0(Z_i,\hat{\alpha}_0)]
@@ -180,7 +179,7 @@ $$
 Now let's rearrange:
 
 $$
-E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])|X,Z]
+E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(Y_{D=1}-E[Y|D=1,Z])|D,Z]
 $$\
 $$
 E[\frac{(D-e(Z,\beta))}{e(Z,\beta)}(E[Y_{D=1}-E[Y|D=1,Z]])|D,Z]
